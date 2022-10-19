@@ -1,7 +1,7 @@
 __name__ = "UtilityLib"
 __version__ = '2.6'
 __subversion__ = "20221018"
-__author__ = "[TheBiomics](contact@thebiomics.com)"
+__author__ = "TheBiomics"
 
 from .TimeUtility import TimeUtility
 from .DataUtility import DataUtility
