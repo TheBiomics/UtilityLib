@@ -33,6 +33,52 @@ class DataUtility(TimeUtility):
     else:
       return None
 
+  @staticmethod
+  def filter(*args, **kwargs):
+    """
+      @status: WIP
+
+      @method
+      Recursively filter
+
+      @params
+      0|data: List/Tuple/Set/Dict(values)/str
+      1|what: What char to strip
+    """
+    _data = args[0] if len(args) > 0 else kwargs.get("data")
+    _what = args[1] if len(args) > 1 else kwargs.get("what")
+    if isinstance(_data, (str)):
+      ...
+    elif isinstance(_data, (list, tuple, set)):
+      ...
+    elif isinstance(_data, (dict)):
+      for _key, _value in _data:
+        ...
+    return _data
+
+  @staticmethod
+  def strip(*args, **kwargs):
+    """
+      @method
+      Recursively strips string in a array
+
+      @params
+      0|data: List/Tuple/Set/Dict(values)/str
+      1|char: What char to strip
+    """
+    _data = args[0] if len(args) > 0 else kwargs.get("data")
+    _char = args[1] if len(args) > 1 else kwargs.get("char")
+
+    if isinstance(_data, (str)):
+      _data = _data.strip(_char) if _char and len(_char) > 0 else _data.strip()
+    elif isinstance(_data, (list, tuple, set)):
+      _data = [DataUtility.strip(_t, _char) for _t in _data]
+    elif isinstance(_data, (dict)):
+      for _key, _value in _data:
+        _data[_key] = DataUtility.strip(_value, _char)
+
+    return _data
+
   def find_all(self, *args, **kwargs):
     """
     Finds all substrings in a given string
@@ -62,13 +108,13 @@ class DataUtility(TimeUtility):
       yield _list[_n:_n+_size]
 
   @staticmethod
-  def flatten(_nested, _level=9999, _level_processed=0):
+  def flatten(_nested, _level=99, _level_processed=0):
     """
       Flattens deep nested list/tuple of list/tuple
     """
     for _item in _nested:
       _level_processed += 1
-      if _level > _level_processed and isinstance(_item, (list, tuple)):
+      if _level > _level_processed and isinstance(_item, (list, tuple, set)):
         yield from DataUtility.flatten(_item, _level, _level_processed) # >v3
       else:
         yield _item

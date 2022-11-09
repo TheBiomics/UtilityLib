@@ -123,7 +123,7 @@ class FileSystemUtility(LoggingUtility):
       "row_size": 100,
     }
     _default_args.update(kwargs)
-    self.__update_attr(**_default_args)
+    self.update_attributes(self, kwargs)
 
     _file = args[0] if len(args) > 0 else kwargs.get("file")
     _processor_line = args[1] if len(args) > 1 else kwargs.get("processor_line", print)
@@ -227,6 +227,13 @@ class FileSystemUtility(LoggingUtility):
     _html = BeautifulSoup(_text, "html.parser")
     return _html
 
+  def unpickle(self, *args, **kwargs):
+    f"""
+      @alias read_pickle
+      {FileSystemUtility.read_pickle.__doc__}
+    """
+    return self.read_pickle(*args, **kwargs)
+
   def read_pickle(self, *args, **kwargs):
     """
       @function
@@ -235,18 +242,27 @@ class FileSystemUtility(LoggingUtility):
       @params
       0|source (str|path): File path
       1|default (any): default value to return if file not found
+      2|flag_compressed (boolean): If file is gz compressed (other compressions are not implemented)
 
       @return
-      False: if file is not found
+      None: if some error occurs
       python object after reading the pkl file
     """
     self.update_attributes(self, kwargs)
     _source = args[0] if len(args) > 0 else kwargs.get("source")
-    _default = args[1] if len(args) > 1 else kwargs.get("default", False)
+    _default = args[1] if len(args) > 1 else kwargs.get("default", None)
+    _flag_compressed = args[2] if len(args) > 2 else kwargs.get("flag_compressed", True)
 
     if self.check_path(_source) and self.require('cPickle', "PICKLE", "pickle"):
-      with open(_source, 'rb+') as _fp:
-        _value = self.PICKLE.load(_fp)
+      if _flag_compressed and self.require("gzip", "GZip"):
+        with self.GZip.open(_source, 'rb') as _fh:
+          _default = self.PICKLE.load(_fh)
+        # _fh = self.GZip.open(_source, 'rb')
+        # _default = self.PICKLE.load(_fh)
+        # _fh.close()
+      else:
+        with open(_source, 'rb+') as _fp:
+          _default = self.PICKLE.load(_fp)
     else:
       self.log_error("Required module or pickle path is not found!")
 
@@ -273,21 +289,43 @@ class FileSystemUtility(LoggingUtility):
     _content = self.xml_to_dict(_content)
     return _content
 
+  def read(self, *args, **kwargs):
+    f"""
+      @extends read_text
+      {FileSystemUtility.read_text.__doc__}
+    """
+    return self.read_text(*args, **kwargs)
+
   def read_text(self, *args, **kwargs):
     """
     @ToDo
-    implement yield|generator to handle larger files
+      * implement yield|generator to handle larger files
+      * check if file extension is gz, try reading it as gz
+      * `str.splitlines(keepends=False)`
     """
+
     self.update_attributes(self, kwargs)
     _file_path = args[0] if len(args) > 0 else kwargs.get("file_path")
+    _return_type = args[1] if len(args) > 1 else kwargs.get("return_type", list)
+    _callback = args[2] if len(args) > 2 else kwargs.get("callback", self.strip) # "".join
     _content = None
 
     if OS.path.isdir(_file_path):
       self.log_error(f"{_file_path} is a directory not a file.")
       return None
 
-    with open(_file_path, 'r', encoding='UTF8') as f:
-      _content = f.readlines()
+    if self.ext(_file_path) == "gz":
+      return self.read_gz_file(_file_path)
+
+    with open(_file_path, 'r', encoding='UTF8') as _fh:
+      _content = _fh.readlines()
+
+    if _return_type == str:
+      _content = "".join(_content)
+
+    if _callback is not None:
+      _content = _callback(_content)
+
     return _content
 
   def read_json(self, *args, **kwargs):
@@ -307,6 +345,18 @@ class FileSystemUtility(LoggingUtility):
     return _res_dict
 
   def write(self, *args, **kwargs):
+    """
+      @params
+        0|destination:
+        1|content
+        2|append (boolean)
+        3|encoding
+        4|mode
+        5|position: Write position by moving cursor
+
+      @return
+        check_path(destination)
+    """
     self.update_attributes(self, kwargs)
     _destination = args[0] if len(args) > 0 else kwargs.get("destination")
     _content = args[1] if len(args) > 1 else kwargs.get("content", "")
@@ -338,6 +388,7 @@ class FileSystemUtility(LoggingUtility):
     with open(_destination, _mode, **_write_args) as _fh:
       if _mode.startswith("w"):
         _fh.seek(_position)
+
       if isinstance(_content, (bytes, bytearray, str)):
         _fh.write(_content)
       elif isinstance(_content, (list, tuple, set)):
@@ -346,7 +397,17 @@ class FileSystemUtility(LoggingUtility):
     return self.check_path(_destination)
 
   def save_pickle(self, *args, **kwargs):
-    f"""@alias write_pickle \n {self.write_pickle.__doc__}"""
+    f"""
+      @alias write_pickle
+      {FileSystemUtility.write_pickle.__doc__}
+    """
+    return self.write_pickle(*args, **kwargs)
+
+  def pickle(self, *args, **kwargs):
+    f"""
+      @alias write_pickle
+      {FileSystemUtility.write_pickle.__doc__}
+    """
     return self.write_pickle(*args, **kwargs)
 
   def write_pickle(self, *args, **kwargs):
@@ -360,21 +421,22 @@ class FileSystemUtility(LoggingUtility):
 
       @returns
       True|False if file path exists
+
+      @update
+        Uses GZip for compression
+        File extension pkl.gz used against df.gz|pd.gz pickled files
     """
-    # Use require to load package
-    # try:
-    #   import cPickle as PICKLE
-    # except:
-    #   import pickle as PICKLE
 
     self.update_attributes(self, kwargs)
-    if self.require('cPickle', "PICKLE", "pickle"):
+    if self.require('cPickle', "PICKLE", "pickle") and self.require("gzip", "GZip"):
       _destination = args[0] if len(args) > 0 else kwargs.get("destination")
       _content = args[1] if len(args) > 1 else kwargs.get("content")
-      with open(_destination, 'wb+') as _fp:
-        self.PICKLE.dump(_content, _fp)
-      return True
-    return False
+
+      with self.GZip.open(_destination,'wb') as _fh:
+        self.PICKLE.dump(_content, _fh)
+    else:
+      self.log_error("Either pickle/gzip module was not loaded or some other error occurred.")
+    return self.exists(_destination)
 
   def write_json(self, *args, **kwargs):
     """
@@ -407,7 +469,10 @@ class FileSystemUtility(LoggingUtility):
     return self.check_path(_destination)
 
   def conv_xml_to_dict(self, *args, **kwargs):
-    f"""@alias xml_to_dict \n {self.xml_to_dict.__doc__}"""
+    f"""
+      @alias xml_to_dict
+      {FileSystemUtility.xml_to_dict.__doc__}
+    """
     return self.xml_to_dict(*args, **kwargs)
 
   def xml_to_dict(self, *args, **kwargs):
@@ -515,7 +580,7 @@ class FileSystemUtility(LoggingUtility):
       @function
       returns content of a file
 
-      {self.get_file.__doc__}
+      {FileSystemUtility.get_file.__doc__}
     """
 
     kwargs.update({"return_text": True})
@@ -664,7 +729,7 @@ class FileSystemUtility(LoggingUtility):
   def exists(self, *args, **kwargs):
     f"""
       @alias check_path
-      {self.check_path.__doc__}
+      {FileSystemUtility.check_path.__doc__}
     """
     return self.check_path(*args, **kwargs)
 
@@ -673,7 +738,7 @@ class FileSystemUtility(LoggingUtility):
       Returns first existing path from the given list
 
       @extends check_path
-      {self.check_path.__doc__}
+      {FileSystemUtility.check_path.__doc__}
     """
     _path = args[0] if len(args) > 0 else kwargs.get("path")
     if isinstance(_path, (str)):
@@ -764,7 +829,7 @@ class FileSystemUtility(LoggingUtility):
   def file_name(self, *args, **kwargs):
     f"""
       @alias filename
-      {self.filename.__doc__}
+      {FileSystemUtility.filename.__doc__}
     """
     return self.filename(*args, **kwargs)
 
@@ -806,7 +871,7 @@ class FileSystemUtility(LoggingUtility):
   def file_ext(self, *args, **kwargs):
     f"""
       @alias ext
-      {self.ext.__doc__}
+      {FileSystemUtility.ext.__doc__}
     """
     return self.ext(*args, **kwargs)
 
@@ -824,9 +889,37 @@ class FileSystemUtility(LoggingUtility):
     _delimiter = args[2] if len(args) > 2 else kwargs.get("delimiter", ".")
 
     _file_path = OS.path.basename(_file_path)
-    _file_path = _file_path.rsplit(_delimiter, _num_ext)
+    _file_path = _file_path.rsplit(_delimiter, _num_ext) # str.removesuffix
     _file_path = f"{_delimiter}".join(_file_path[-_num_ext:])
     return _file_path
+
+  def clean_key(self, *args, **kwargs):
+    """
+      Cleans a string to be used a key
+
+      @params
+      0|text:
+      1|keep:
+
+      @ToDo:
+      - Remove special characts
+      - remove bracket content flag
+      - preserve or replace space with dash or underscore???
+
+    """
+    _text = args[0] if len(args) > 0 else kwargs.get("text", "")
+    _keep = args[1] if len(args) > 1 else kwargs.get("keep", " ")
+
+    # Compile or get the existing object
+    self.re_underscore = self.re_underscore if hasattr(self, "re_underscore") else self.re_compile("_")
+    self.re_bracket = self.re_bracket if hasattr(self, "re_bracket") else self.re_compile("\(.*?\)|\[.*?\]")
+    self.re_space = self.re_space if hasattr(self, "re_space") else self.re_compile("\s+")
+
+    # _text = _text.lower()
+    _text = self.re_bracket.sub(" ", _text)
+    _text = self.re_underscore.sub(" ", _text)
+    _text = self.re_space.sub(" ", _text.strip())
+    return _text
 
   def text_to_slug(self, *args, **kwargs):
     _text = args[0] if len(args) > 0 else kwargs.get("text")

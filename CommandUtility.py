@@ -119,36 +119,6 @@ class CommandUtility(DataUtility):
 
     return self.flatten_args(_arg_aggregator)
 
-  def get_config(self, *args, **kwargs):
-    """
-      OmegaConf to read configuration YAML file
-    """
-    self.update_attributes(self, kwargs)
-    self.path_config = args[0] if len(args) > 0 else kwargs.get("path_config", getattr(self, "path_config", "config.yml"))
-
-    if self.path_config and self.require("omegaconf", "ConfigManager"):
-      self.config = self.ConfigManager.OmegaConf.load(self.path_config)
-    else:
-      self.config = dict()
-      print("Either config path or OmegaConf is missing.")
-
-    return self.config
-
-  def update_config(self, *args, **kwargs):
-    """
-      OmegaConf to save configuration YAML file
-      # @ToDo: Update config with changes
-    """
-    self.update_attributes(self, kwargs)
-    self.get_config(*args, **kwargs)
-    self.config = args[1] if len(args) > 1 else kwargs.get("config", getattr(self, "config"))
-
-    if self.path_config and self.require("omegaconf", "ConfigManager"):
-      self.config = self.ConfigManager.OmegaConf.create(self.config)
-      with open(self.path_config, "w+") as _ofp:
-        self.ConfigManager.OmegaConf.save(self.config, f=_ofp.name)
-    else:
-      print("Either config path or OmegaConf is not installed.")
 
   def guess_nargs_from_default(self, *args, **kwargs):
     _default = args[0] if len(args) > 0 else kwargs.get("default")

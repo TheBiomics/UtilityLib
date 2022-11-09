@@ -16,22 +16,21 @@ class TimeUtility(BaseUtility):
     self.pinned_time = TIME.time()
     return self.pinned_time
 
-  def time_stamp(self):
+  def time_stamp(self, *args, **kwargs):
+    _format = args[0] if len(args) > 0 else kwargs.get("format", '%Y%m%d%H%M%S')
     from datetime import datetime as DATE_PROVIDER
-    return DATE_PROVIDER.today().strftime('%Y%m%d%H%M%S')
+    return DATE_PROVIDER.today().strftime(_format)
 
-  def time_to_string(self, *args, **kwargs):
+  def time_string(self, *args, **kwargs):
     # https://stackoverflow.com/a/10981895/6213452
-    _time = args[0] if len(args) > 0 else kwargs.get("time")
+    _timestamp = args[0] if len(args) > 0 else kwargs.get("timestamp", self.time_get())
 
-    # days = td.days
-    # hours, remainder = divmod(td.seconds, 3600)
-    # minutes, seconds = divmod(remainder, 60)
-    # # If you want to take into account fractions of a second
-    # seconds += td.microseconds / 1e6
+    if _timestamp:
+      from datetime import datetime as DATE_PROVIDER
+      return DATE_PROVIDER.utcfromtimestamp(float(_timestamp))
 
-    if _time:
-      return _time
+    self.require("time", "TIME")
+    return self.TIME.ctime()
 
   def time_elapsed(self, *args, **kwargs):
     _from = args[0] if len(args) > 0 else kwargs.get("from", self.time_get())
@@ -43,7 +42,7 @@ class TimeUtility(BaseUtility):
     _res_time = str(_time_delta)
 
     if _human_readable:
-      _res_time = self.time_to_string(_time_delta)
+      _res_time = self.time_string(_time_delta)
 
     return _res_time
 

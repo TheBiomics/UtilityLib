@@ -58,6 +58,7 @@ class LoggingUtility(DatabaseUtility):
         "print_message": True,
         "type": "info",
         "last_message": None,
+        "log_file_path": ".",
         "log_file_name": "app-process.log",
         "log_table_name": "db_watchdog",
         "step": False,
@@ -105,7 +106,9 @@ class LoggingUtility(DatabaseUtility):
     if getattr(self, 'engine'):
       _db_log_df.to_sql(self.log_table_name, self.engine, if_exists='append', index = False)
     else:
-      _db_log_df.to_csv(self.log_file_name, mode='a', header=False)
+      _log_file = f"{self.log_file_path.strip('/')}/{self.log_file_name}"
+      if self.exists(_log_file):
+        _db_log_df.to_csv(_log_file, mode='a', header=False)
 
     if getattr(self, 'step_pause', False):
       input("Step Pause enabled. Press enter to continue...")
