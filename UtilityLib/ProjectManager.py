@@ -1,4 +1,4 @@
-from UtilityLib2 import UtilityManager
+from .UtilityManager import UtilityManager
 import copy
 
 class Dict(dict):
