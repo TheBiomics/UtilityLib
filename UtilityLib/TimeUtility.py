@@ -4,12 +4,12 @@ from .BaseUtility import BaseUtility
 
 class TimeUtility(BaseUtility):
   def __init__(self, *args, **kwargs):
-    super(TimeUtility, self).__init__(**kwargs)
     self.__defaults = {
         "debug": False,
         "duration": 3,
       }
-    self.update_attributes(self, kwargs, self.__defaults)
+    self.__defaults.update(kwargs)
+    super(TimeUtility, self).__init__(**self.__defaults)
     self.time_start()
 
   def time_get(self):

@@ -44,16 +44,6 @@ class LoggingUtility(DatabaseUtility):
     }
 
   def __init__(self, *args, **kwargs):
-    super(LoggingUtility, self).__init__(**kwargs)
-    self.log_status = {
-        "success": LoggingUtility.highlight_terminal_text("[SUCCESS]", "black", 'green'),
-        "debug": LoggingUtility.highlight_terminal_text("[DEBUG]", "black", 'magenta', text_style="italic"),
-        "info": LoggingUtility.highlight_terminal_text("[INFO]", "black", 'cyan'),
-        "fail": LoggingUtility.highlight_terminal_text("[FAIL]", "black", 'red', text_style="blink"),
-        "error": LoggingUtility.highlight_terminal_text("[ERROR]", "black", 'red'),
-        "warning": LoggingUtility.highlight_terminal_text("[WARNING]", "black", 'yellow'),
-      }
-
     self.__defaults = {
         "print_message": True,
         "type": "info",
@@ -61,11 +51,20 @@ class LoggingUtility(DatabaseUtility):
         "log_file_path": ".",
         "log_file_name": "app-process.log",
         "log_table_name": "db_watchdog",
+        "log_status": {
+            "success": LoggingUtility.highlight_terminal_text("[SUCCESS]", "black", 'green'),
+            "info": LoggingUtility.highlight_terminal_text("[INFO]", "black", 'cyan'),
+            "debug": LoggingUtility.highlight_terminal_text("[DEBUG]", "black", 'magenta', text_style="italic"),
+            "warning": LoggingUtility.highlight_terminal_text("[WARNING]", "black", 'yellow'),
+            "fail": LoggingUtility.highlight_terminal_text("[FAIL]", "black", 'red', text_style="blink"),
+            "error": LoggingUtility.highlight_terminal_text("[ERROR]", "black", 'red'),
+          },
         "step": False,
       }
 
+    self.__defaults.update(kwargs)
+    super(LoggingUtility, self).__init__(**self.__defaults)
     self.require_many([("pandas", "PD"), ("textwrap", "TextWrapper")])
-    self.update_attributes(self, kwargs, self.__defaults)
 
   @staticmethod
   def highlight_terminal_text(text, bg_color="blue", fg_color="white", text_style="regular", placeholder_size=11):
@@ -87,7 +86,7 @@ class LoggingUtility(DatabaseUtility):
     self.last_message = args
 
     for _message in args:
-      if self.print_message == True:
+      if hasattr(self, 'print_message') and self.print_message == True:
         _print_msg = f"{self.log_status[self.type]} [{self.time_elapsed()}] {str(_message)}"
         if _wrap_message:
           _print_msg = self.TextWrapper.fill(_print_msg, width=80, subsequent_indent=" "*11)
@@ -101,7 +100,7 @@ class LoggingUtility(DatabaseUtility):
         "time": self.time_get()
       })
 
-    _db_log_df = self.PD.DataFrame(_db_log)
+    _db_log_df = self.DF(_db_log)
 
     if getattr(self, 'engine'):
       _db_log_df.to_sql(self.log_table_name, self.engine, if_exists='append', index = False)

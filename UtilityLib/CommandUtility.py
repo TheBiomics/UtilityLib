@@ -9,7 +9,6 @@ from .DataUtility import DataUtility
 
 class CommandUtility(DataUtility):
   def __init__(self, *args, **kwargs):
-    super(CommandUtility, self).__init__(**kwargs)
     self.__defaults = {
         "debug": False,
         "config": [],
@@ -17,7 +16,8 @@ class CommandUtility(DataUtility):
         "cpu_count": MultiProcessing.cpu_count(),
         "processes": []
       }
-    self.update_attributes(self, kwargs, self.__defaults)
+    self.__defaults.update(kwargs)
+    super(CommandUtility, self).__init__(**self.__defaults)
 
   def multiprocess_start(self, *args, **kwargs):
     _processes = args[0] if len(args) > 0 else kwargs.get("processes", getattr(self, "processes"))
@@ -119,7 +119,6 @@ class CommandUtility(DataUtility):
 
     return self.flatten_args(_arg_aggregator)
 
-
   def guess_nargs_from_default(self, *args, **kwargs):
     _default = args[0] if len(args) > 0 else kwargs.get("default")
     if _default is None:
@@ -134,6 +133,18 @@ class CommandUtility(DataUtility):
     _version = args[0] if len(args) > 0 else kwargs.get("version", "unknown")
     self.cmd_arg_parser = ARGUMENT.ArgumentParser(prog=_version)
     self.cmd_arg_parser.add_argument('-v', '--version', action='version', version=_version)
+
+  def get_cli_args_v2(self):
+    """
+      WIP
+    """
+    from absl import app
+    from absl import flags
+    from absl import logging
+
+    flags.DEFINE_list(
+        'fasta_paths', None, 'Paths to FASTA files, each containing a prediction '
+        'target that will be folded one after another. If a FASTA file contains ')
 
   def get_cli_args(self, *args, **kwargs):
 

@@ -6,19 +6,15 @@ from warnings import warn as WARN
 import shutil as SHUTIL
 import itertools as IterTools
 
-import urllib as URL
-
 import json as JSON
 
 from .LoggingUtility import LoggingUtility
 
 class FileSystemUtility(LoggingUtility):
   def __init__(self, *args, **kwargs):
-    super(FileSystemUtility, self).__init__(**kwargs)
-    self.__defaults = {
-        "debug": False,
-      }
-    self.update_attributes(self, kwargs, self.__defaults)
+    self.__defaults = {}
+    self.__defaults.update(kwargs)
+    super(FileSystemUtility, self).__init__(**self.__defaults)
 
   def rename(self, *args, **kwargs):
     _file_path = args[0] if len(args) > 0 else kwargs.get("file_path")
@@ -123,7 +119,7 @@ class FileSystemUtility(LoggingUtility):
       "row_size": 100,
     }
     _default_args.update(kwargs)
-    self.update_attributes(self, kwargs)
+    self.update_attributes(self, _default_args)
 
     _file = args[0] if len(args) > 0 else kwargs.get("file")
     _processor_line = args[1] if len(args) > 1 else kwargs.get("processor_line", print)
@@ -306,7 +302,7 @@ class FileSystemUtility(LoggingUtility):
 
     self.update_attributes(self, kwargs)
     _file_path = args[0] if len(args) > 0 else kwargs.get("file_path")
-    _return_type = args[1] if len(args) > 1 else kwargs.get("return_type", list)
+    _return_type = args[1] if len(args) > 1 else kwargs.get("return_type", list) # tuple, set
     _callback = args[2] if len(args) > 2 else kwargs.get("callback", self.strip) # "".join
     _content = None
 
@@ -320,8 +316,10 @@ class FileSystemUtility(LoggingUtility):
     with open(_file_path, 'r', encoding='UTF8') as _fh:
       _content = _fh.readlines()
 
-    if _return_type == str:
+    if isinstance(_return_type, (str)) or _return_type == str:
       _content = "".join(_content)
+    else:
+      _content = _return_type(_content)
 
     if _callback is not None:
       _content = _callback(_content)
@@ -586,6 +584,22 @@ class FileSystemUtility(LoggingUtility):
     kwargs.update({"return_text": True})
     return self.get_file(*args, **kwargs)
 
+  def download_content(self, *args, **kwargs):
+    _url = args[0] if len(args) > 0 else kwargs.get("url")
+    _destination = args[1] if len(args) > 1 else kwargs.get("destination", None)
+
+    if _destination:
+      self.validate_dir(self.file_dir(_destination))
+
+    self.require("urllib.request", "URLLib")
+
+    try:
+      self.URLLib.urlretrieve(_url, _destination)
+    except:
+      self.log_error(f"{_url} has some error. Couldn't download the content.")
+
+    return self.check_path(_destination)
+
   def get_file(self, *args, **kwargs):
     f"""
       @function
@@ -628,16 +642,16 @@ class FileSystemUtility(LoggingUtility):
       # Return text if writing destination not provided
       _return_text = True
 
-    self.require("requests", "REQUESTS")
     try:
+      self.require("requests", "REQUESTS")
       _session = self.REQUESTS.Session()
       _session.headers.update(_default_headers)
       self.log_info(f"Downloading content from {_url}.")
 
       if _method == "post":
-        _response = _session.post(_url, stream=True, json=_form_values)
+        _response = _session.post(_url, stream=True, json=_form_values, allow_redirects=True)
       else:
-        _response = _session.get(_url, stream=True, data=_form_values)
+        _response = _session.get(_url, stream=True, data=_form_values, allow_redirects=True)
 
       if _destination:
         kwargs.pop("content", None)
@@ -647,7 +661,7 @@ class FileSystemUtility(LoggingUtility):
         return _response.text
     except:
       self.log_warning(f"Normal procedure failed. Trying alternate method 'urlretrieve'.")
-      URL.request.urlretrieve(_url, _destination)
+      self.download_content(_url, _destination)
 
     return self.check_path(_destination)
 
@@ -892,48 +906,6 @@ class FileSystemUtility(LoggingUtility):
     _file_path = _file_path.rsplit(_delimiter, _num_ext) # str.removesuffix
     _file_path = f"{_delimiter}".join(_file_path[-_num_ext:])
     return _file_path
-
-  def clean_key(self, *args, **kwargs):
-    """
-      Cleans a string to be used a key
-
-      @params
-      0|text:
-      1|keep:
-
-      @ToDo:
-      - Remove special characts
-      - remove bracket content flag
-      - preserve or replace space with dash or underscore???
-
-    """
-    _text = args[0] if len(args) > 0 else kwargs.get("text", "")
-    _keep = args[1] if len(args) > 1 else kwargs.get("keep", " ")
-
-    # Compile or get the existing object
-    self.re_underscore = self.re_underscore if hasattr(self, "re_underscore") else self.re_compile("_")
-    self.re_bracket = self.re_bracket if hasattr(self, "re_bracket") else self.re_compile("\(.*?\)|\[.*?\]")
-    self.re_space = self.re_space if hasattr(self, "re_space") else self.re_compile("\s+")
-
-    # _text = _text.lower()
-    _text = self.re_bracket.sub(" ", _text)
-    _text = self.re_underscore.sub(" ", _text)
-    _text = self.re_space.sub(" ", _text.strip())
-    return _text
-
-  def text_to_slug(self, *args, **kwargs):
-    _text = args[0] if len(args) > 0 else kwargs.get("text")
-    _keep = args[1] if len(args) > 1 else kwargs.get("keep", ["-"])
-    _replace_with = args[1] if len(args) > 1 else kwargs.get("replace_with", "-")
-    _replacements = args[2] if len(args) > 2 else kwargs.get("keep", ["-"])
-
-    if isinstance(_text, (str)):
-      _text = "".join([_c if _c.isalnum() or _c in _keep else _replace_with for _c in _text])
-      if isinstance(_replacements, (dict)):
-        for _k, _v in _replacements.items():
-          _text = _text.replace(_k, _v)
-
-    return _text
 
   def split_file(self, *args, **kwargs):
     # TODO

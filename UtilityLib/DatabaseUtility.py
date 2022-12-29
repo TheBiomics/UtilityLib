@@ -7,33 +7,24 @@ from .CommandUtility import CommandUtility
 
 class DatabaseUtility(CommandUtility):
   def __init__(self, *args, **kwargs):
-    super(DatabaseUtility, self).__init__(**kwargs)
     self.__defaults = {
         "debug": True,
         "db_path": "scrapper.db",
         "engine": None,
         "is_connected": False,
       }
-    self.update_attributes(self, kwargs, self.__defaults)
+    self.__defaults.update(kwargs)
+    super(DatabaseUtility, self).__init__(**self.__defaults)
 
-  def connect_engine(self, *args, **kwargs):
+  def connect_mysql(self, *args, **kwargs):
+    # My SQL Connection
     self.__update_attr(*args, **kwargs)
     if self.engine is None and self.db_name is not None:
       from sqlalchemy import create_engine
       self.engine = create_engine("mysql+pymysql://" + self.db_user + ":" + self.db_password + "@" + self.db_host + "/" + self.db_name)
     return self.engine
 
-  def connect(self, *args, **kwargs):
-    self.update_attributes(self, kwargs)
-    self.connection = SQLConnector.connect(
-      host= self.db_host,
-      user= self.db_user,
-      password= self.db_password,
-      database= self.db_name
-    )
-    self.cursor = self.connection.cursor()
-
-  def __init_sqlite_engine(self, *args, **kwargs):
+  def connect_sqlite(self, *args, **kwargs):
     self.db_path = args[0] if len(args) > 0 else kwargs.get("db_path", getattr(self, "db_path"))
 
     if self.is_connected:
@@ -53,7 +44,7 @@ class DatabaseUtility(CommandUtility):
 
   def db_connect(self, *args, **kwargs):
     self.update_attributes(self, kwargs)
-    return self.__init_sqlite_engine(*args, **kwargs)
+    return self.connect_sqlite(**kwargs)
 
   # Accessory functions using pandas
   def set_table_data(self, *args, **kwargs):

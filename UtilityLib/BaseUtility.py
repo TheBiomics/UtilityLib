@@ -6,17 +6,22 @@ class BaseUtility:
     self.__defaults = {
       "_imported_modules": [],
     }
-    self.update_attributes(self, kwargs, self.__defaults)
-    self.set_system_type(**kwargs)
-    self.set_directories(**kwargs)
+    self.__defaults.update(kwargs)
+    self.set_system_type(**self.__defaults)
+    self.update_attributes(self, self.__defaults)
 
   def update_attributes(self, object=None, kw=dict(), defaults=dict()):
     """
       Sets attribute (dict) values and defaults
     """
-    if object is not None:
-      [setattr(object, _k, defaults[_k]) for _k in defaults.keys() if not hasattr(object, _k)]
-      [setattr(object, _k, kw[_k]) for _k in kw.keys()]
+    if object is None:
+      object = self
+
+    if isinstance(kw.get('path_bases'), (list, tuple)):
+      self.set_directories(**kw)
+
+    [setattr(object, _k, defaults[_k]) for _k in defaults.keys() if not hasattr(object, _k)]
+    [setattr(object, _k, kw[_k]) for _k in kw.keys()]
 
   def set_directories(self, *args, **kwargs):
     _path_bases = args[0] if len(args) > 0 else kwargs.get("path_bases", self.OS.getcwd())
@@ -28,11 +33,25 @@ class BaseUtility:
       self.path_base = _path_bases[1] if self.is_windows else _path_bases[0]
     elif isinstance(_path_bases, (dict)):
       # ToDo: first linux, then windows
-      self.path_base = self.set_directories(path_base = _path_bases.values())
-    return self.path_base
+      self.path_base = self.set_directories(path_bases=_path_bases.values())
+
+  def __call__(self, *args, **kwargs):
+    self.update_attributes(self, kwargs)
+    return self
 
   def __str__(self):
-    print("WIP to return complete method as a string.")
+    return "@ToDo: implement str magic."
+
+  def preprocess_output(self, *args, **kwargs):
+    """
+      @ToDo: Test and QA
+    """
+    _value = args[0] if len(args) > 0 else kwargs.get("value")
+    _callback = args[1] if len(args) > 1 else kwargs.get("callback")
+    if _callback and _value:
+      return _callback(_value)
+
+    return _value
 
   def set_system_type(self, *args, **kwargs):
     self.is_windows = False
@@ -53,9 +72,10 @@ class BaseUtility:
     1|module:
     """
 
-    _module_path = args.pop(0) if len(args) > 0 else kwargs.get("module_path", "")
+    _module_path = args[0] if len(args) > 0 else kwargs.get("module_path", "")
     self.require("sys", "SYSTEM")
     self.SYSTEM.path.append(_module_path)
+    args = args[1:]
     self.require(*args, **kwargs)
     return self
 

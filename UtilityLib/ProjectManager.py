@@ -1,7 +1,7 @@
-from .UtilityManager import UtilityManager
+from UtilityLib import UtilityManager
 import copy
 
-class Dict(dict):
+class ObjDict(dict):
   def __init__(__self, *args, **kwargs):
     object.__setattr__(__self, "__parent", kwargs.pop("__parent", None))
     object.__setattr__(__self, "__key", kwargs.pop("__key", None))
@@ -24,7 +24,7 @@ class Dict(dict):
   def __setattr__(self, name, value):
     if hasattr(self.__class__, name):
       raise AttributeError(
-        "'Dict' object attribute " "'{0}' is read-only".format(name)
+        "'ObjDict' object attribute " "'{0}' is read-only".format(name)
       )
     else:
       self[name] = value
@@ -33,9 +33,9 @@ class Dict(dict):
     isFrozen = hasattr(self, "__frozen") and object.__getattribute__(
       self, "__frozen"
     )
-    if isFrozen and name not in super(Dict, self).keys():
+    if isFrozen and name not in super(ObjDict, self).keys():
       raise KeyError(name)
-    super(Dict, self).__setitem__(name, value)
+    super(ObjDict, self).__setitem__(name, value)
     try:
       p = object.__getattribute__(self, "__parent")
       key = object.__getattribute__(self, "__key")
@@ -129,16 +129,16 @@ class Dict(dict):
     self.update(state)
 
   def __or__(self, other):
-    if not isinstance(other, (Dict, dict)):
+    if not isinstance(other, (ObjDict, dict)):
       return NotImplemented
-    new = Dict(self)
+    new = ObjDict(self)
     new.update(other)
     return new
 
   def __ror__(self, other):
-    if not isinstance(other, (Dict, dict)):
+    if not isinstance(other, (ObjDict, dict)):
       return NotImplemented
-    new = Dict(other)
+    new = ObjDict(other)
     new.update(self)
     return new
 
@@ -156,11 +156,14 @@ class Dict(dict):
   def freeze(self, shouldFreeze=True):
     object.__setattr__(self, "__frozen", shouldFreeze)
     for key, val in self.items():
-      if isinstance(val, Dict):
+      if isinstance(val, ObjDict):
         val.freeze(shouldFreeze)
 
   def unfreeze(self):
     self.freeze(False)
+
+# Keeping
+Dict = ObjDict
 
 class ProjectManager(UtilityManager):
   name = "project"
@@ -168,9 +171,9 @@ class ProjectManager(UtilityManager):
   subversion = 20220000
 
   def __init__(self, *args, **kwargs):
-    super(ProjectManager, self).__init__(**kwargs)
     self.__defaults = {"debug": False, "key_config": "config"}
-    self.update_attributes(self, kwargs, self.__defaults)
+    self.__defaults.update(kwargs)
+    super(ProjectManager, self).__init__(**self.__defaults)
     self.load_config()
 
   def set_path_config(self, *args, **kwargs):
@@ -180,7 +183,7 @@ class ProjectManager(UtilityManager):
     )
 
   def rebuild_config(self, *args, **kwargs):
-    setattr(self, self.key_config, self.ConfigManager(getattr(self, self.key_config, Dict())))
+    setattr(self, self.key_config, self.ConfigManager(getattr(self, self.key_config, ObjDict())))
 
   def reset_config(self, *args, **kwargs):
     self.update_attributes(self, kwargs, self.__defaults)
@@ -188,7 +191,7 @@ class ProjectManager(UtilityManager):
 
   def load_config(self, *args, **kwargs):
     self.set_path_config()
-    self.ConfigManager = Dict
+    self.ConfigManager = ObjDict
     setattr(self, self.key_config, self.ConfigManager())
     if self.exists(self.path_config):
       setattr(self, self.key_config, self.unpickle(self.path_config))
@@ -200,7 +203,7 @@ class ProjectManager(UtilityManager):
     self.set_path_config()
     self.rebuild_config()
 
-    _config = getattr(self, self.key_config, Dict())
+    _config = getattr(self, self.key_config, ObjDict())
     _config.last_updated = self.time_stamp()
     self.pickle(self.path_config, _config)
 
