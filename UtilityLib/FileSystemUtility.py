@@ -1,13 +1,7 @@
 import os as OS
-import re as REGEX
-
 from warnings import warn as WARN
-
 import shutil as SHUTIL
-import itertools as IterTools
-
 import json as JSON
-
 from .LoggingUtility import LoggingUtility
 
 class FileSystemUtility(LoggingUtility):
@@ -65,6 +59,12 @@ class FileSystemUtility(LoggingUtility):
       _tar.close()
 
   def list_tgz_items(self, *args, **kwargs):
+    """
+
+    @bug: Doesn't renew file in loop due to path_tgz
+    Workaround to assign path_tgz at the beginning of every loop.
+
+    """
     self.update_attributes(self, kwargs)
     if not hasattr(self, "path_tgz"):
       self.path_tgz = args[0] if len(args) > 0 else kwargs.get("path_tgz")
@@ -111,7 +111,7 @@ class FileSystemUtility(LoggingUtility):
 
   def read_gz_file(self, *args, **kwargs):
     """
-      Reads gzipped file (not tar.gz) line by line (txt, jsonl, csv, and tsv etc...)
+      Reads gzipped file (not tar.gz or a compressed file) line by line (txt, jsonl, csv, and tsv etc...)
       Can advance the counter to get
     """
     _default_args = {
@@ -122,16 +122,22 @@ class FileSystemUtility(LoggingUtility):
     self.update_attributes(self, _default_args)
 
     _file = args[0] if len(args) > 0 else kwargs.get("file")
-    _processor_line = args[1] if len(args) > 1 else kwargs.get("processor_line", print)
+    _processor_line = args[1] if len(args) > 1 else kwargs.get("processor_line")
 
     self.require("gzip", "GZip")
-    self.count_lines = self.count_lines if self.skip_rows == 0 and hasattr(self, "count_lines") else self.skip_rows
+    self.count_lines = self.count_lines if hasattr(self, "count_lines") else self.skip_rows
+    _result = True
     with self.GZip.open(_file, 'rt') as _fh:
-      # for _line in list(IterTools.islice(_fh, self.skip_rows, self.skip_rows + self.row_size)):
-      for _line in IterTools.islice(_fh, self.skip_rows, self.skip_rows + self.row_size):
-        # _fh.buffer.fileobj.tell() # https://stackoverflow.com/a/62589283/16963281
-        self.count_lines = self.count_lines + 1
-        yield _processor_line(_line)
+      if not self.row_size:
+        _result = _fh.readlines()
+      else:
+        import itertools as IterTools
+        for _line in IterTools.islice(_fh, self.skip_rows, self.skip_rows + self.row_size):
+          # _fh.buffer.fileobj.tell() # https://stackoverflow.com/a/62589283/16963281
+          self.count_lines = self.count_lines + 1
+          yield _processor_line(_line) if _processor_line else _line
+
+    return _result
 
   def extract_zip(self, *args, **kwargs):
     _source = args[0] if len(args) > 0 else kwargs.get("source")
@@ -152,8 +158,7 @@ class FileSystemUtility(LoggingUtility):
 
   def list_zip_items(self, *args, **kwargs):
     self.update_attributes(self, kwargs)
-    if not hasattr(self, "path_zip"):
-      self.path_zip = args[0] if len(args) > 0 else kwargs.get("path_zip")
+    self.path_zip = args[0] if len(args) > 0 else kwargs.get("path_zip", getattr(self, "path_zip"))
 
     _info_type = args[1] if len(args) > 1 else kwargs.get("info_type", "info") # names|info
     _flag_filter = args[2] if len(args) > 2 else kwargs.get("flag_filter", False)
@@ -224,9 +229,8 @@ class FileSystemUtility(LoggingUtility):
     return _html
 
   def unpickle(self, *args, **kwargs):
-    f"""
+    """
       @alias read_pickle
-      {FileSystemUtility.read_pickle.__doc__}
     """
     return self.read_pickle(*args, **kwargs)
 
@@ -253,9 +257,6 @@ class FileSystemUtility(LoggingUtility):
       if _flag_compressed and self.require("gzip", "GZip"):
         with self.GZip.open(_source, 'rb') as _fh:
           _default = self.PICKLE.load(_fh)
-        # _fh = self.GZip.open(_source, 'rb')
-        # _default = self.PICKLE.load(_fh)
-        # _fh.close()
       else:
         with open(_source, 'rb+') as _fp:
           _default = self.PICKLE.load(_fp)
@@ -286,9 +287,10 @@ class FileSystemUtility(LoggingUtility):
     return _content
 
   def read(self, *args, **kwargs):
-    f"""
-      @extends read_text
-      {FileSystemUtility.read_text.__doc__}
+    """
+      @ToDo:
+      - Guess type of file and return type based on the path, extension with exceptions
+      @Temporarily resolves to read_text
     """
     return self.read_text(*args, **kwargs)
 
@@ -311,12 +313,12 @@ class FileSystemUtility(LoggingUtility):
       return None
 
     if self.ext(_file_path) == "gz":
-      return self.read_gz_file(_file_path)
+      _content = self.read_gz_file(_file_path, None, row_size=None)
+    else:
+      with open(_file_path, 'r', encoding='UTF8') as _fh:
+        _content = _fh.readlines()
 
-    with open(_file_path, 'r', encoding='UTF8') as _fh:
-      _content = _fh.readlines()
-
-    if isinstance(_return_type, (str)) or _return_type == str:
+    if not isinstance(_content, (str)) and (isinstance(_return_type, (str)) or _return_type == str):
       _content = "".join(_content)
     else:
       _content = _return_type(_content)
@@ -332,8 +334,7 @@ class FileSystemUtility(LoggingUtility):
     _res_dict = {}
 
     if self.check_path(_file_path):
-      _content = self.read_text(_file_path)
-      _content = "".join(_content)
+      _content = self.read_text(_file_path, str)
       self.require("ast", "AbsSynTree")
       try:
         _res_dict = JSON.loads(_content)
@@ -395,16 +396,14 @@ class FileSystemUtility(LoggingUtility):
     return self.check_path(_destination)
 
   def save_pickle(self, *args, **kwargs):
-    f"""
+    """
       @alias write_pickle
-      {FileSystemUtility.write_pickle.__doc__}
     """
     return self.write_pickle(*args, **kwargs)
 
   def pickle(self, *args, **kwargs):
-    f"""
+    """
       @alias write_pickle
-      {FileSystemUtility.write_pickle.__doc__}
     """
     return self.write_pickle(*args, **kwargs)
 
@@ -467,9 +466,8 @@ class FileSystemUtility(LoggingUtility):
     return self.check_path(_destination)
 
   def conv_xml_to_dict(self, *args, **kwargs):
-    f"""
+    """
       @alias xml_to_dict
-      {FileSystemUtility.xml_to_dict.__doc__}
     """
     return self.xml_to_dict(*args, **kwargs)
 
@@ -572,13 +570,12 @@ class FileSystemUtility(LoggingUtility):
     return _deleted_files
 
   def get_file_content(self, *args, **kwargs):
-    f"""
+    """
       @extends get_file
 
       @function
       returns content of a file
 
-      {FileSystemUtility.get_file.__doc__}
     """
 
     kwargs.update({"return_text": True})
@@ -601,7 +598,7 @@ class FileSystemUtility(LoggingUtility):
     return self.check_path(_destination)
 
   def get_file(self, *args, **kwargs):
-    f"""
+    """
       @function
       downloads a url content and returns content of the file
       uses urlretrieve as fallback
@@ -741,18 +738,16 @@ class FileSystemUtility(LoggingUtility):
     return _dir_created
 
   def exists(self, *args, **kwargs):
-    f"""
+    """
       @alias check_path
-      {FileSystemUtility.check_path.__doc__}
     """
     return self.check_path(*args, **kwargs)
 
   def get_existing(self, *args, **kwargs):
-    f"""
+    """
       Returns first existing path from the given list
 
       @extends check_path
-      {FileSystemUtility.check_path.__doc__}
     """
     _path = args[0] if len(args) > 0 else kwargs.get("path")
     if isinstance(_path, (str)):
@@ -765,7 +760,7 @@ class FileSystemUtility(LoggingUtility):
     return False
 
   def check_path(self, *args, **kwargs):
-    f"""
+    """
       @function
       checks if path exists or not
 
@@ -789,7 +784,7 @@ class FileSystemUtility(LoggingUtility):
   def validate_subdir(self, *args, **kwargs):
     _base = args[0] if len(args) > 0 else kwargs.get("base")
     _sub = args[0] if len(args) > 0 else kwargs.get("sub")
-    r = REGEX.compile(r"[/\\]")
+    r = self.re_compile(r"[/\\]")
     # Check if sub_dir contains any slash so that it is not directory name, append it's parent path
     if r.search(str(_sub)) == None:
       return self.validate_dir(f"{_base}{OS.sep}{_sub}")
@@ -841,9 +836,8 @@ class FileSystemUtility(LoggingUtility):
     return _fpath
 
   def file_name(self, *args, **kwargs):
-    f"""
+    """
       @alias filename
-      {FileSystemUtility.filename.__doc__}
     """
     return self.filename(*args, **kwargs)
 
@@ -883,9 +877,8 @@ class FileSystemUtility(LoggingUtility):
     return None
 
   def file_ext(self, *args, **kwargs):
-    f"""
+    """
       @alias ext
-      {FileSystemUtility.ext.__doc__}
     """
     return self.ext(*args, **kwargs)
 

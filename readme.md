@@ -1,5 +1,11 @@
-# About UtilityLib2
+# About UtilityLib
 * Provided ready to use functions to process, read, write, list files and directories and more...
+
+# Installation
+
+* Install using source from github using python's pip module
+* Copy the UtilityLib directory in the project
+* `pip install UtilityLib` under any python envrironment
 
 # Examples
 
@@ -7,20 +13,20 @@
 # Append package path to PYTHONPATH or use sys.path.append method to append parent directory's path
 
 # 1
-from UtilityLib2 import EU
+from UtilityLib import EU
 EU.filename("filepath/filename.ext1.ext2")
 
 # 2
-from UtilityLib2 import UtilityManager as UM
+from UtilityLib import UtilityManager as UM
 UM().filename("filepath/filename.ext1.ext2")
 
 # 3
-import UtilityLib2 as UL
+import UtilityLib as UL
 UL.UM.filename("filepath/filename.ext1.ext2")
 UL.UtilityManager().filename("filepath/filename.ext1.ext2")
 
 # 4
-from UtilityLib2 import ProjectManager
+from UtilityLib import ProjectManager
 _pm = ProjectManager(
   path_bases=("/mnt/D/DataDrive", "D:/path-windows")
   version=2,
@@ -79,7 +85,7 @@ EU.delete_path(f"{path_scrapped_queries}/WOS-Downloads")
 * Added single static `update_attributes` method and removed `__update_attr` method from individual class
 
 ## 2.57.20220908
-* Implemented ready to go import `from UtilityLib2 import EU`
+* Implemented ready to go import `from UtilityLib import EU`
 * Param changes in EU.combination method
 
 ## 2.56.20220905

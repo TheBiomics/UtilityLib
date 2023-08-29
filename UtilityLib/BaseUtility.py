@@ -1,7 +1,10 @@
 import importlib as MODULE_IMPORTER
+from os import getpid
 import os as OS
+from psutil import pid_exists, Process
 
 class BaseUtility:
+  name = "UtilityLib"
   def __init__(self, *args, **kwargs):
     self.__defaults = {
       "_imported_modules": [],
@@ -9,6 +12,38 @@ class BaseUtility:
     self.__defaults.update(kwargs)
     self.set_system_type(**self.__defaults)
     self.update_attributes(self, self.__defaults)
+
+  def is_running(self, *args, **kwargs):
+    _file = args[0] if len(args) > 0 else kwargs.get("file", "process-v2.txt")
+    _dir = args[1] if len(args) > 1 else kwargs.get("dir", 'Documents/PyProcessConfig')
+
+    _path_user_settings = OS.path.join(OS.path.expanduser('~'), _dir)
+    _path_file_pid = f"{_path_user_settings}/{_file}"
+
+    if not OS.path.exists(_path_user_settings):
+      OS.makedirs(_path_user_settings)
+
+    _current_pid = getpid()
+    if OS.path.exists(_path_file_pid):
+      with open(_path_file_pid) as f:
+        pid = f.read()
+        pid = int(pid) if pid.isnumeric() else None
+      if pid is not None and pid_exists(pid) and Process(pid).cmdline() == Process(_current_pid).cmdline():
+        return True
+
+    with open(_path_file_pid, 'w') as f:
+      f.write(str(_current_pid))
+
+    return False
+
+  def set_logging(self, *args, **kwargs):
+    import logging
+    import warnings
+    self.LOGGER = logging.getLogger(self.name + "Logs")
+    logging.captureWarnings(True)
+    self.WARNINGS = warnings
+    self.LOGGER.setLevel(logging.INFO)
+    self.LOGGER_WARNING = logging.getLogger('py.warnings')
 
   def update_attributes(self, object=None, kw=dict(), defaults=dict()):
     """

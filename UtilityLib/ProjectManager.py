@@ -1,4 +1,4 @@
-from UtilityLib import UtilityManager
+from .UtilityManager import UtilityManager
 import copy
 
 class ObjDict(dict):

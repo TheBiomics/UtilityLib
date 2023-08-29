@@ -1,4 +1,4 @@
-import time as TIME
+
 
 from .BaseUtility import BaseUtility
 
@@ -13,7 +13,8 @@ class TimeUtility(BaseUtility):
     self.time_start()
 
   def time_get(self):
-    self.pinned_time = TIME.time()
+    self.require("time", "TIME")
+    self.pinned_time = self.TIME.time()
     return self.pinned_time
 
   def time_stamp(self, *args, **kwargs):
@@ -59,5 +60,6 @@ class TimeUtility(BaseUtility):
 
   def time_pause(self, *args, **kwargs):
     self.update_attributes(self, kwargs)
-    _duration = args[0] if len(args) > 0 else kwargs.get("duration", getattr(self, "duration"))
-    TIME.sleep(_duration)
+    self.duration = args[0] if len(args) > 0 else kwargs.get("duration", getattr(self, "duration"))
+    self.require("time", "TIME")
+    self.TIME.sleep(self.duration)

@@ -22,7 +22,12 @@ class DataUtility(TimeUtility):
   def DF(self, *args, **kwargs):
     _data = args[0] if len(args) > 0 else kwargs.get("data")
     if self.require("pandas", "PD"):
-      return self.PD.DataFrame(_data)
+      return self.PD.DataFrame(_data, **kwargs)
+
+  def read_csv(self, *args, **kwargs):
+    _file = args[0] if len(args) > 0 else kwargs.get("file")
+    if self.require("pandas", "PD"):
+      return self.PD.read_csv(_file, **kwargs)
 
   def re_compile(self, *args, **kwargs):
     _pattern = args[0] if len(args) > 0 else kwargs.get("pattern")
@@ -130,18 +135,30 @@ class DataUtility(TimeUtility):
       yield _obj[_n:_n+_size]
 
   @staticmethod
-  def flatten(_nested, _level=99, _level_processed=0):
+  def is_iterable(*args, **kwargs):
     """
-      Flattens deep nested list/tuple of list/tuple
+      Checks for iterables except str
+
+      @usage
+      .flatten(list|tuple, 2)
+    """
+    _obj = args[0] if len(args) > 0 else kwargs.get("obj")
+    return hasattr(_obj, '__iter__') and not isinstance(_obj, str)
+
+  @staticmethod
+  def flatten(_nested, _level=99, _depth=0):
+    """
+      Flattens nested iterables except str
+
+      @usage
+      .flatten(list|tuple, 2)
     """
     _collector = []
-    if isinstance(_nested, (list, tuple, set)):
+    _depth += 1
+    if all([DataUtility.is_iterable(_nested), not _level <= _depth]):
       for _item in _nested:
-        _level_processed += 1
-        if _level > _level_processed and isinstance(_item, (list, tuple, set)):
-          _collector.extend(DataUtility.flatten(_item, _level, _level_processed)) # >v3
-        else:
-          _collector.append(_item)
+        _val = DataUtility.flatten(_item, _level, _depth)
+        _collector.extend(_val) if DataUtility.is_iterable(_val) else _collector.append(_val)
     else:
       _collector = _nested
     return _collector
@@ -181,12 +198,11 @@ class DataUtility(TimeUtility):
 
   def get_parts(self, *args, **kwargs):
     _text = args[0] if len(args) > 0 else kwargs.get("text")
-    _position = args[2] if len(args) > 2 else kwargs.get("position", -3)
-    _delimiter = args[3] if len(args) > 3 else kwargs.get("delimiter", "/")
+    _position = args[1] if len(args) > 1 else kwargs.get("position", -3)
+    _delimiter = args[2] if len(args) > 2 else kwargs.get("delimiter", "/")
 
     _text = _text.split(_delimiter)
     return _text[_position]
-
 
   def common_substrings(self, *args, **kwargs):
     """
@@ -235,6 +251,33 @@ class DataUtility(TimeUtility):
     _results = self.common_substrings(*args, **kwargs)
     _result = max(_results, key=len) if len(_results) > 0 else ""
     return _result
+
+  def get_deep_key(self, *args, **kwargs):
+    """
+      Get method to access nested key
+
+      @params
+      0|obj:
+      1|keys:
+      2|default -> optional:
+
+      @example
+      get_deep_key(_dict, (key, subkey, subsubkey), _default)
+
+      @return
+      matched key value or default
+    """
+    _obj = args[0] if len(args) > 0 else kwargs.get("obj", {})
+    _keys = args[1] if len(args) > 1 else kwargs.get("keys", ())
+    _default = args[2] if len(args) > 2 else kwargs.get("default")
+
+    _reduced_val = _obj
+
+    for _k in _keys:
+      if _reduced_val and not isinstance(_reduced_val, (list, str)) and hasattr(_reduced_val, "get"):
+        _reduced_val = _reduced_val.get(_k, _default)
+
+    return _reduced_val
 
   def clean_key(self, *args, **kwargs):
     """

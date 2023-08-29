@@ -64,6 +64,7 @@ class LoggingUtility(DatabaseUtility):
 
     self.__defaults.update(kwargs)
     super(LoggingUtility, self).__init__(**self.__defaults)
+    self.set_logging(**self.__defaults)
     self.require_many([("pandas", "PD"), ("textwrap", "TextWrapper")])
 
   @staticmethod
@@ -83,16 +84,14 @@ class LoggingUtility(DatabaseUtility):
     _wrap_message = kwargs.get("log_wrap", True)
     _db_log = []
 
-    self.last_message = args
-
     for _message in args:
       if hasattr(self, 'print_message') and self.print_message == True:
         _print_msg = f"{self.log_status[self.type]} [{self.time_elapsed()}] {str(_message)}"
         if _wrap_message:
           _print_msg = self.TextWrapper.fill(_print_msg, width=80, subsequent_indent=" "*11)
 
-        print(_print_msg, flush=True)
-        # print("\033[H\033[J", end="") # Clears output of the console
+        _log = getattr(self.LOGGER, self.type, 'info')
+        _log(_print_msg)
 
       _db_log.append({
         "type": self.type,
@@ -103,22 +102,26 @@ class LoggingUtility(DatabaseUtility):
     _db_log_df = self.DF(_db_log)
 
     if getattr(self, 'engine'):
-      _db_log_df.to_sql(self.log_table_name, self.engine, if_exists='append', index = False)
+      _db_log_df.to_sql(self.log_table_name, self.engine, if_exists='append', index=False)
     else:
       _log_file = f"{self.log_file_path.strip('/')}/{self.log_file_name}"
       if self.exists(_log_file):
         _db_log_df.to_csv(_log_file, mode='a', header=False)
 
     if getattr(self, 'step_pause', False):
-      input("Step Pause enabled. Press enter to continue...")
+      input("Step pause enabled. Press enter to continue...")
       self.update_attributes(self, {"step": False})
 
   def log_info(self, *args, **kwargs):
     kwargs.update({"type": "info"})
+    for _m in args:
+      self.LOGGER.info(_m)
     return self.__log(*args, **kwargs)
 
   def log_debug(self, *args, **kwargs):
     kwargs.update({"type": "debug"})
+    for _m in args:
+      self.LOGGER.debug(_m)
     return self.__log(*args, **kwargs)
 
   def log_warning(self, *args, **kwargs):
