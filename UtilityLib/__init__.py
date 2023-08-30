@@ -1,7 +1,7 @@
-__name__ = "UtilityLib"
+__package__ = "UtilityLib"
 __version__ = '2.7'
-__subversion__ = "20221111"
-__author__ = "[Vishal Kumar Sahu](vishalkumarsahu.in)"
+__subversion__ = "20230830"
+__author__ = "Vishal Kumar Sahu"
 
 from .TimeUtility import TimeUtility
 from .DataUtility import DataUtility
