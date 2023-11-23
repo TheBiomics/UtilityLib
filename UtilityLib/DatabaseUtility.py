@@ -17,8 +17,8 @@ class DatabaseUtility(CommandUtility):
 
   def set_tables(self, *args, **kwargs):
     from sqlalchemy import MetaData
-    _md = MetaData(bind=self.engine)
-    _md.reflect()
+    _md = MetaData()
+    _md.reflect(bind=self.engine)
     self.tables = dict(_md.tables)
 
   def connect_mysql(self, *args, **kwargs):
@@ -146,6 +146,10 @@ class DatabaseUtility(CommandUtility):
     _db_entries = self.__empty_table_with_columns(**kwargs)
 
     if _table is None:
+      """
+      @TODO
+        getattr(self, 'tables') # use first table as default
+      """
       return _db_entries
 
     try:
@@ -173,7 +177,8 @@ class DatabaseUtility(CommandUtility):
 
     """
       @usage
-      CLASS.insert("table_name", {'col_1': '5vr3',
+      CLASS.insert("table_name", {
+        'col_1': '5vr3',
         'col_2': 'DB12070',
         ...
         'col_N': None})
@@ -193,7 +198,8 @@ class DatabaseUtility(CommandUtility):
     self.query_last = args[0] if len(args) > 0 else kwargs.get("query")
     self.query_params = args[1] if len(args) > 1 else kwargs.get("query_params")
 
+    from sqlalchemy import text as SQLText
     with self.engine.connect().execution_options(isolation_level="AUTOCOMMIT") as _con:
-      self.query_last_result = _con.execute(self.query_last, self.query_params)
+      self.query_last_result = _con.execute(SQLText(self.query_last), self.query_params)
 
     return self.query_last_result

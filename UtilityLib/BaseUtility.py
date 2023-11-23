@@ -1,7 +1,6 @@
 import importlib as MODULE_IMPORTER
 from os import getpid
 import os as OS
-from psutil import pid_exists, Process
 
 class BaseUtility:
   name = "UtilityLib"
@@ -24,6 +23,9 @@ class BaseUtility:
       OS.makedirs(_path_user_settings)
 
     _current_pid = getpid()
+
+    from psutil import pid_exists, Process
+
     if OS.path.exists(_path_file_pid):
       with open(_path_file_pid) as f:
         pid = f.read()

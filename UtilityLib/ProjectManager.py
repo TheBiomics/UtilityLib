@@ -1,5 +1,5 @@
 from .UtilityManager import UtilityManager
-import copy
+import copy as COPY_Mod
 
 class ObjDict(dict):
   def __init__(__self, *args, **kwargs):
@@ -90,16 +90,16 @@ class ObjDict(dict):
     return base
 
   def copy(self):
-    return copy.copy(self)
+    return COPY_Mod.copy(self)
 
   def deepcopy(self):
-    return copy.deepcopy(self)
+    return COPY_Mod.deepcopy(self)
 
   def __deepcopy__(self, memo):
     other = self.__class__()
     memo[id(self)] = other
     for key, value in self.items():
-      other[copy.deepcopy(key, memo)] = copy.deepcopy(value, memo)
+      other[COPY_Mod.deepcopy(key, memo)] = COPY_Mod.deepcopy(value, memo)
     return other
 
   def update(self, *args, **kwargs):
@@ -198,6 +198,9 @@ class ProjectManager(UtilityManager):
 
     self.rebuild_config()
 
+  def save_config(self, *args, **kwargs):
+    return self.update_config(*args, **kwargs)
+
   def update_config(self, *args, **kwargs):
     self.update_attributes(self, kwargs, self.__defaults)
     self.set_path_config()
@@ -210,6 +213,18 @@ class ProjectManager(UtilityManager):
   def get_path(self, *args, **kwargs):
     _relative_path = args[0] if len(args) > 0 else kwargs.get("path", "")
     return f"{self.path_base.rstrip('/')}/{_relative_path.lstrip('/')}"
+
+  def get_join(self, *args, **kwargs):
+    _key = args[0] if len(args) > 0 else kwargs.get("key", None)
+    _val = args[1] if len(args) > 1 else kwargs.get("val", None)
+    _glue = args[2] if len(args) > 2 else kwargs.get("glue", "/")
+    _def_prepend = args[3] if len(args) > 3 else kwargs.get("default", "")
+
+    if not _key is None:
+      _static_config = getattr(self, self.key_config)
+      _def_prepend = _static_config.get(_key, "")
+
+    return f"{_glue}".join([_def_prepend, _val])
 
   def get_file(self, *args, **kwargs):
     ...

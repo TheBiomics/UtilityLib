@@ -13,7 +13,8 @@ class CommandUtility(DataUtility):
         "debug": False,
         "config": [],
         "ProgressBar": ProgressBar, # ProgressBar(iterable, position=0, leave=True)
-        "cpu_count": MultiProcessing.cpu_count(),
+        "PB": ProgressBar,
+        "cpu_count": None,
         "processes": []
       }
     self.__defaults.update(kwargs)
@@ -22,6 +23,7 @@ class CommandUtility(DataUtility):
   def multiprocess_start(self, *args, **kwargs):
     _processes = args[0] if len(args) > 0 else kwargs.get("processes", getattr(self, "processes"))
 
+    self.cpu_count = MultiProcessing.cpu_count()
     # Start job in chunks
     for _batch in self.chunks(_processes, round(self.cpu_count/5)):
       for _job in _batch:

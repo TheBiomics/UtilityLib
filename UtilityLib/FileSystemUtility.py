@@ -11,8 +11,9 @@ class FileSystemUtility(LoggingUtility):
     super(FileSystemUtility, self).__init__(**self.__defaults)
 
   def rename(self, *args, **kwargs):
-    _file_path = args[0] if len(args) > 0 else kwargs.get("file_path")
-    # OS.rename('from.extension.whatever','to.another.extension')
+    _old_name = args[0] if len(args) > 0 else kwargs.get("from")
+    _new_name = args[1] if len(args) > 1 else kwargs.get("to")
+    return OS.rename(_old_name, _new_name)
 
   def compress_gz(self, *args, **kwargs):
     """Compress a file to gz
@@ -111,8 +112,8 @@ class FileSystemUtility(LoggingUtility):
 
   def read_gz_file(self, *args, **kwargs):
     """
-      Reads gzipped file (not tar.gz or a compressed file) line by line (txt, jsonl, csv, and tsv etc...)
-      Can advance the counter to get
+      Reads gzipped files only (not tar.gz, tgz or a compressed file) line by line (fasta, txt, jsonl, csv, and tsv etc...)
+      Can advance the counter to skip set of lines
     """
     _default_args = {
       "skip_rows": 0,
@@ -123,16 +124,16 @@ class FileSystemUtility(LoggingUtility):
 
     _file = args[0] if len(args) > 0 else kwargs.get("file")
     _processor_line = args[1] if len(args) > 1 else kwargs.get("processor_line")
+    self.count_lines = self.count_lines if hasattr(self, "count_lines") else self.skip_rows
 
     self.require("gzip", "GZip")
-    self.count_lines = self.count_lines if hasattr(self, "count_lines") else self.skip_rows
     _result = True
     with self.GZip.open(_file, 'rt') as _fh:
       if not self.row_size:
         _result = _fh.readlines()
       else:
-        import itertools as IterTools
-        for _line in IterTools.islice(_fh, self.skip_rows, self.skip_rows + self.row_size):
+        self.require('itertools', "IterTools")
+        for _line in self.IterTools.islice(_fh, self.skip_rows, self.skip_rows + self.row_size):
           # _fh.buffer.fileobj.tell() # https://stackoverflow.com/a/62589283/16963281
           self.count_lines = self.count_lines + 1
           yield _processor_line(_line) if _processor_line else _line

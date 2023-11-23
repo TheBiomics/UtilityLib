@@ -1,5 +1,3 @@
-
-
 from .BaseUtility import BaseUtility
 
 class TimeUtility(BaseUtility):

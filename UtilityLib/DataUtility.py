@@ -7,6 +7,10 @@ class DataUtility(TimeUtility):
     super(DataUtility, self).__init__(**self.__defaults)
 
   def digit_only(self, *args, **kwargs):
+    """See self.parse_digits"""
+    return self.parse_digits(*args, **kwargs)
+
+  def parse_digits(self, *args, **kwargs):
     """
       @return digit parts of a given _data
 
@@ -19,10 +23,120 @@ class DataUtility(TimeUtility):
     _data = args[0] if len(args) > 0 else kwargs.get("data")
     return "".join([_s for _s in _data if _s.isdigit()])
 
+  def pd_categorical(self, df, col_name, sort=True):
+      """
+      Arguments:
+        0|df: pandas DataFrame
+        1|col_name: Column Name
+        2|sort: boolean
+
+      Returns:
+        (categorical_df, mapping)
+
+      Example:
+        _df_cat, _mapping = _PM.pd_categorical(df, 'gender', True)
+
+      """
+      df_copy = df.copy()
+      if sort:
+          df_copy = df_copy.sort_values(col_name)
+
+      column_mapping = {}
+      if not df_copy[col_name].dtype.name == 'category':
+          df_copy[col_name] = df_copy[col_name].astype('category')
+          column_mapping = dict(zip( df_copy[col_name].cat.codes, df_copy[col_name]))
+          column_mapping_inverse = zip(column_mapping.values(), column_mapping.keys())
+          column_mapping_inverse = dict(column_mapping_inverse)
+          df_copy[col_name] = df_copy[col_name].map(column_mapping_inverse)
+
+      column_mapping_df = self.DF({
+              'key': column_mapping.keys(),
+              'values': column_mapping.values(),
+          })
+
+      return (df_copy, column_mapping_df)
+
+  def pd_excel_writer(self, *args, **kwargs):
+    _excel = args[0] if len(args) > 0 else kwargs.get("excel")
+    _options = args[4] if len(args) > 4 else kwargs.get("pyxl_options", dict())
+
+    _options.update({
+      "engine": kwargs.get("engine", "openpyxl"),
+      "mode": kwargs.get("mode", "a"),
+      "if_sheet_exists": kwargs.get("sheet_exists", "replace"),
+    })
+
+    if isinstance(_excel, (str, )): # str or path?
+      self.require('pandas', 'PD')
+      if not self.exists(_excel):
+        del _options['mode']
+        del _options['if_sheet_exists']
+
+      return self.PD.ExcelWriter(_excel, **_options)
+
+  def from_excel(self, *args, **kwargs):
+    """
+    Arguments:
+      0|excel: Either openpyxl writer or path to excel
+      1|sheet: Name of the sheet
+
+    Returns:
+      pandas.DataFrame
+
+    Example:
+      _PM.from_excel(<path.xlsx>, _df, 'sheet_name', **excel_options, **pyxl_options)
+
+    """
+
+    _excel = args[0] if len(args) > 0 else kwargs.get("excel")
+    _sheet = args[1] if len(args) > 1 else kwargs.get("sheet")
+    kwargs['sheet'] = _sheet
+
+    self.require('pandas', 'PD')
+    _excel = self.PD.read_excel(_excel, **kwargs)
+
+    return _excel
+
+  def pd_excel(self, *args, **kwargs):
+    """
+    Arguments:
+      0|excel: Either openpyxl writer or path to excel
+      1|df: Pandas DataFrame to be written
+      2|sheet: Name of the sheet
+      3|excel_options: Options for PD.to_excel
+      4|pyxl_options: Options (like engine, mode) for PD.ExcelWriter
+
+    Returns:
+      openpyxl
+      openpyxl.sheets => Contains sheets
+      openpyxl.books => contains books
+
+    Example:
+      _PM.pd_excel(<path.xlsx>, _df, 'sheet_name', **excel_options, **pyxl_options)
+
+    """
+
+    _excel_writer = args[0] if len(args) > 0 else kwargs.get("excel")
+    _df = args[1] if len(args) > 1 else kwargs.get("df")
+    _sheet = args[2] if len(args) > 2 else kwargs.get("sheet", 'DataFrame')
+    _excel_options = args[3] if len(args) > 3 else kwargs.get("excel_options", {'index': False})
+
+    if isinstance(_excel_writer, (str, )):
+      _excel_writer = self.pd_excel_writer(_excel_writer, **kwargs)
+
+    _df.copy().to_excel(_excel_writer, sheet_name=_sheet, **_excel_options)
+    hasattr(_excel_writer, 'save') and _excel_writer.save()
+    _excel_writer.close()
+    _excel_writer.handles = None
+    return _excel_writer
+
   def DF(self, *args, **kwargs):
     _data = args[0] if len(args) > 0 else kwargs.get("data")
     if self.require("pandas", "PD"):
       return self.PD.DataFrame(_data, **kwargs)
+
+  def pd_csv(self, *args, **kwargs):
+    return self.read_csv(*args, **kwargs)
 
   def read_csv(self, *args, **kwargs):
     _file = args[0] if len(args) > 0 else kwargs.get("file")
@@ -257,8 +371,8 @@ class DataUtility(TimeUtility):
       Get method to access nested key
 
       @params
-      0|obj:
-      1|keys:
+      0|obj: dictionary
+      1|keys: string, pipe separated string, list, tuple, set
       2|default -> optional:
 
       @example
@@ -271,13 +385,20 @@ class DataUtility(TimeUtility):
     _keys = args[1] if len(args) > 1 else kwargs.get("keys", ())
     _default = args[2] if len(args) > 2 else kwargs.get("default")
 
-    _reduced_val = _obj
+    _list_objs = (tuple, set, list)
+
+    _keys = _keys if isinstance(_keys, _list_objs) else _keys.split("|")
 
     for _k in _keys:
-      if _reduced_val and not isinstance(_reduced_val, (list, str)) and hasattr(_reduced_val, "get"):
-        _reduced_val = _reduced_val.get(_k, _default)
+      # hasattr(, 'get') & str|int=> _dict key, int => list, tuple, or set
+      if isinstance(_obj, (dict)) and hasattr(_obj, 'get') and isinstance(_k, (str, int)):
+        _obj = _obj.get(_k, _default)
+      elif((isinstance(_k, int) or _k.isnumeric()) and isinstance(_obj, _list_objs)):
+        _k = int(_k)
+        if len(_obj) > _k:
+          _obj = _obj[_k]
 
-    return _reduced_val
+    return _obj
 
   def clean_key(self, *args, **kwargs):
     """
@@ -307,6 +428,15 @@ class DataUtility(TimeUtility):
     _text = self.re_space.sub(" ", _text.strip())
     return _text
 
+  def expand_ranges(self, *args, **kwargs):
+    # 33-51,103-203
+    _ranges = args[0] if len(args) > 0 else kwargs.get("ranges", "")
+    _expanded = self.flatten(map(
+        lambda _l: [*range(int(_l[0]), int(_l[1]) + 1, 1)],
+        map(lambda _x: _x.split("-"), _ranges.split(","))
+    ))
+    return _expanded
+
   def text_to_slug(self, *args, **kwargs):
     _text = args[0] if len(args) > 0 else kwargs.get("text")
     _keep = args[1] if len(args) > 1 else kwargs.get("keep", ["-"])
@@ -320,3 +450,11 @@ class DataUtility(TimeUtility):
           _text = _text.replace(_k, _v)
 
     return _text
+
+  def print_csv(self, *args, **kwargs):
+      _args = [str(_a) for _a in self.flatten(args)]
+      _return = kwargs.get('return', False)
+      _str = ",".join(_args)
+      if _return:
+        return _str
+      print(_str)
