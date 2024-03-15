@@ -23,6 +23,27 @@ class DataUtility(TimeUtility):
     _data = args[0] if len(args) > 0 else kwargs.get("data")
     return "".join([_s for _s in _data if _s.isdigit()])
 
+  def df_reset_columns(self, *args, **kwargs):
+    """
+      @return reset column multiindex additionally set group index as a column
+
+      @params
+      0|df: DataFrame
+      1|key: DataFrame.groupby().key
+
+      # Considering data is str
+      # Float, int list etc are not tested or handled
+    """
+
+    _df = args[0] if len(args) > 0 else kwargs.get("df")
+    _key = args[1] if len(args) > 1 else kwargs.get("key")
+
+    _joined_cols = ["__".join(_idx) for _idx in _df.columns if isinstance(_idx, tuple)]
+    _df.columns = _joined_cols if len(_joined_cols) == len(_df.columns) else _df.columns
+    if _key and (not _key in _df.columns) and (not 'index' in _df.columns):
+        _df = _df.reset_index()
+    return _df
+
   def pd_categorical(self, df, col_name, sort=True):
       """
       Arguments:

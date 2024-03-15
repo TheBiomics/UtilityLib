@@ -10,6 +10,12 @@ class FileSystemUtility(LoggingUtility):
     self.__defaults.update(kwargs)
     super(FileSystemUtility, self).__init__(**self.__defaults)
 
+  def backup(self, *args, **kwargs):
+    _file = args[0] if len(args) > 0 else kwargs.get("file")
+    _ext = self.ext(_file)
+    _copy_name = self.change_ext(self.time_stamp() + f".{_ext}")
+    return self.copy(_file, _copy_name)
+
   def rename(self, *args, **kwargs):
     _old_name = args[0] if len(args) > 0 else kwargs.get("from")
     _new_name = args[1] if len(args) > 1 else kwargs.get("to")
