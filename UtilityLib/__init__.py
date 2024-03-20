@@ -1,6 +1,6 @@
 __package__ = "UtilityLib"
 __version__ = '2.8'
-__subversion__ = "20231123"
+__subversion__ = "20240320"
 __author__ = "Vishal Kumar Sahu"
 
 from .TimeUtility import TimeUtility

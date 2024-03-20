@@ -79,17 +79,6 @@ class BaseUtility:
   def __str__(self):
     return "@ToDo: implement str magic."
 
-  def preprocess_output(self, *args, **kwargs):
-    """
-      @ToDo: Test and QA
-    """
-    _value = args[0] if len(args) > 0 else kwargs.get("value")
-    _callback = args[1] if len(args) > 1 else kwargs.get("callback")
-    if _callback and _value:
-      return _callback(_value)
-
-    return _value
-
   def set_system_type(self, *args, **kwargs):
     self.is_windows = False
     self.is_linux = False

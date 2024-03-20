@@ -5,3 +5,26 @@ class UtilityManager(FileSystemUtility):
     self.__defaults = {}
     self.__defaults.update(kwargs)
     super(UtilityManager, self).__init__(**self.__defaults)
+
+  def preset(self, *args, **kwargs):
+    """Presets of Libraries for Different Purposes
+
+@return Returns true|false
+
+@params
+0|purpose: data, plot, data_plot
+
+    """
+    _purpose = args[0] if len(args) > 0 else kwargs.get("data") # plot
+
+    # Get data libraries
+    _res = []
+
+    if 'data' in _purpose:
+      _res.append(self.require('pandas', 'PD'))
+
+    if 'plot' in _purpose:
+      _res.append(self.require('matplotlib.pyplot', "PLOT"))
+      _res.append(self.require('seaborn', "SNS"))
+
+    return all(_res)

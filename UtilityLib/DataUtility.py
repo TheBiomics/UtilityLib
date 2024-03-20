@@ -6,23 +6,8 @@ class DataUtility(TimeUtility):
     self.__defaults.update(kwargs)
     super(DataUtility, self).__init__(**self.__defaults)
 
-  def digit_only(self, *args, **kwargs):
-    """See self.parse_digits"""
-    return self.parse_digits(*args, **kwargs)
-
-  def parse_digits(self, *args, **kwargs):
-    """
-      @return digit parts of a given _data
-
-      @params
-      0|data: String type
-
-      # Considering data is str
-      # Float, int list etc are not tested or handled
-    """
-    _data = args[0] if len(args) > 0 else kwargs.get("data")
-    return "".join([_s for _s in _data if _s.isdigit()])
-
+  # DataFrame Functions
+  ## Pandas
   def df_reset_columns(self, *args, **kwargs):
     """
       @return reset column multiindex additionally set group index as a column
@@ -164,6 +149,34 @@ class DataUtility(TimeUtility):
     if self.require("pandas", "PD"):
       return self.PD.read_csv(_file, **kwargs)
 
+  # Helpers
+
+  def preprocess_output(self, *args, **kwargs):
+    """
+      @ToDo: Test and QA
+    """
+    _value = args[0] if len(args) > 0 else kwargs.get("value")
+    _callback = args[1] if len(args) > 1 else kwargs.get("callback")
+    if _callback and _value:
+      return _callback(_value)
+
+    return _value
+
+  def parse_digits(self, *args, **kwargs):
+    """Digit parts of a given data
+
+      @params
+      0|data: String type
+
+      # Considering data is str
+      # Float, int list etc are not tested or handled
+    """
+    _data = args[0] if len(args) > 0 else kwargs.get("data")
+    return "".join([_s for _s in str(_data) if _s.isdigit()])
+
+  digits = parse_digits
+  digit_only = parse_digits
+
   def re_compile(self, *args, **kwargs):
     _pattern = args[0] if len(args) > 0 else kwargs.get("pattern")
     _ignore_case = args[1] if len(args) > 1 else kwargs.get("ignore_case", True)
@@ -269,6 +282,9 @@ class DataUtility(TimeUtility):
     for _n in range(0, len(_obj), _size):
       yield _obj[_n:_n+_size]
 
+  slices = chunks
+  sliced = chunks
+
   @staticmethod
   def is_iterable(*args, **kwargs):
     """
@@ -282,8 +298,7 @@ class DataUtility(TimeUtility):
 
   @staticmethod
   def flatten(_nested, _level=99, _depth=0):
-    """
-      Flattens nested iterables except str
+    """Flattens nested iterables except str
 
       @usage
       .flatten(list|tuple, 2)
@@ -299,9 +314,7 @@ class DataUtility(TimeUtility):
     return _collector
 
   def product(self, *args, **kwargs):
-    """
-      @generator
-      Provides combinations of the given items
+    """@generator Provides combinations of the given items
       NOTE: Single string will be converted to one item list
       "AUGC" will behave like ["A", "U", ...]
       ["AUGC"] will be treated as it is
@@ -388,8 +401,7 @@ class DataUtility(TimeUtility):
     return _result
 
   def get_deep_key(self, *args, **kwargs):
-    """
-      Get method to access nested key
+    """Get method to access nested key
 
       @params
       0|obj: dictionary

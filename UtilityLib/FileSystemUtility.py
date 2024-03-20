@@ -235,12 +235,6 @@ class FileSystemUtility(LoggingUtility):
     _html = BeautifulSoup(_text, "html.parser")
     return _html
 
-  def unpickle(self, *args, **kwargs):
-    """
-      @alias read_pickle
-    """
-    return self.read_pickle(*args, **kwargs)
-
   def read_pickle(self, *args, **kwargs):
     """
       @function
@@ -272,6 +266,9 @@ class FileSystemUtility(LoggingUtility):
 
     return _default
 
+  unpickle = read_pickle
+  get_pickle = read_pickle
+
   def read_html(self, *args, **kwargs):
     self.update_attributes(self, kwargs)
     _source = args[0] if len(args) > 0 else kwargs.get("source")
@@ -280,6 +277,10 @@ class FileSystemUtility(LoggingUtility):
     if isinstance(_read, (list, tuple, set)):
       _file_content = "".join(_read)
     return self.parse_html(_file_content, **kwargs)
+
+  # added v2.8
+  html = read_html
+  from_html = read_html
 
   def read_xml(self, *args, **kwargs):
     self.update_attributes(self, kwargs)
@@ -335,6 +336,10 @@ class FileSystemUtility(LoggingUtility):
 
     return _content
 
+  # added v2.8
+  text = read_text
+  from_text = read_text
+
   def read_json(self, *args, **kwargs):
     self.update_attributes(self, kwargs)
     _file_path = args[0] if len(args) > 0 else kwargs.get("file_path")
@@ -349,6 +354,10 @@ class FileSystemUtility(LoggingUtility):
         _res_dict = self.AbsSynTree.literal_eval(_content)
 
     return _res_dict
+
+  # added v2.8
+  from_json = read_json
+  from_JSON = read_json
 
   def write(self, *args, **kwargs):
     """
@@ -402,18 +411,6 @@ class FileSystemUtility(LoggingUtility):
 
     return self.check_path(_destination)
 
-  def save_pickle(self, *args, **kwargs):
-    """
-      @alias write_pickle
-    """
-    return self.write_pickle(*args, **kwargs)
-
-  def pickle(self, *args, **kwargs):
-    """
-      @alias write_pickle
-    """
-    return self.write_pickle(*args, **kwargs)
-
   def write_pickle(self, *args, **kwargs):
     """
       @function
@@ -441,6 +438,9 @@ class FileSystemUtility(LoggingUtility):
     else:
       self.log_error("Either pickle/gzip module was not loaded or some other error occurred.")
     return self.exists(_destination)
+
+  save_pickle = write_pickle
+  pickle = write_pickle
 
   def write_json(self, *args, **kwargs):
     """
@@ -472,16 +472,8 @@ class FileSystemUtility(LoggingUtility):
     self.write(_destination, _content, **kwargs)
     return self.check_path(_destination)
 
-  def conv_xml_to_dict(self, *args, **kwargs):
-    """
-      @alias xml_to_dict
-    """
-    return self.xml_to_dict(*args, **kwargs)
-
   def xml_to_dict(self, *args, **kwargs):
-    """
-      @function
-      Converts XML to dict
+    """Converts XML to dict
 
       @returns
       dict of the converted xml
@@ -500,6 +492,8 @@ class FileSystemUtility(LoggingUtility):
     except:
       self.log_info(f"Failed to convert XML to DICT. Some error occurred.")
     return _res
+
+  conv_xml_to_dict = xml_to_dict
 
   def dict_to_csv(self, *args, **kwargs):
     _destination = args[0] if len(args) > 0 else kwargs.get("destination")
@@ -669,27 +663,34 @@ class FileSystemUtility(LoggingUtility):
 
     return self.check_path(_destination)
 
-  def find_dirs(self, *args, **kwargs):
-    """@alias search_dirs"""
-    return self.search_dirs(*args, **kwargs)
-
   def search_dirs(self, *args, **kwargs):
+    """Search directories using pattern
+
+    """
     self.update_attributes(self, kwargs)
     _source = args[0] if len(args) > 0 else kwargs.get("dir", getattr(self, "dir"))
     _pattern = args[1] if len(args) > 1 else kwargs.get("pattern", "/*/")
-    return self.search(_source, _pattern)
+    return self._search_path_pattern(_source, _pattern)
 
-  def find_files(self, *args, **kwargs):
-    """@alias search_files"""
-    return self.search_files(*args, **kwargs)
+  find_dirs = search_dirs
 
   def search_files(self, *args, **kwargs):
+    """Search files using pattern
+
+    """
     _source = args[0] if len(args) > 0 else kwargs.get("dir", getattr(self, "dir"))
     _pattern = args[1] if len(args) > 1 else kwargs.get("pattern", ["*"])
 
-    return self.search(_source, _pattern)
+    return self._search_path_pattern(_source, _pattern)
+
+  # added v2.8
+  find_files = search_files
+  search = search_files
 
   def get_file_types(self, *args, **kwargs):
+    """Search files using extension
+
+    """
     _source = args[0] if len(args) > 0 else kwargs.get("source", getattr(self, "source", OS.getcwd()))
     _ext = args[1] if len(args) > 1 else kwargs.get("ext", getattr(self, "ext", ()))
     _matches = []
@@ -703,7 +704,10 @@ class FileSystemUtility(LoggingUtility):
           _matches.append(OS.path.join(_root, filename))
     return _matches
 
-  def search(self, *args, **kwargs):
+  def _search_path_pattern(self, *args, **kwargs):
+    """Internal Function to Search Paths based on pattern
+
+    """
     self.update_attributes(self, kwargs)
     _results = []
     _source = args[0] if len(args) > 0 else kwargs.get("source", getattr(self, "source"))
@@ -744,15 +748,8 @@ class FileSystemUtility(LoggingUtility):
 
     return _dir_created
 
-  def exists(self, *args, **kwargs):
-    """
-      @alias check_path
-    """
-    return self.check_path(*args, **kwargs)
-
   def get_existing(self, *args, **kwargs):
-    """
-      Returns first existing path from the given list
+    """Returns first existing path from the given list
 
       @extends check_path
     """
@@ -788,12 +785,14 @@ class FileSystemUtility(LoggingUtility):
 
     return _result
 
+  exists = check_path
+
   def validate_subdir(self, *args, **kwargs):
     _base = args[0] if len(args) > 0 else kwargs.get("base")
     _sub = args[0] if len(args) > 0 else kwargs.get("sub")
-    r = self.re_compile(r"[/\\]")
+    _rgx = self.re_compile(r"[/\\]")
     # Check if sub_dir contains any slash so that it is not directory name, append it's parent path
-    if r.search(str(_sub)) == None:
+    if _rgx.search(str(_sub)) == None:
       return self.validate_dir(f"{_base}{OS.sep}{_sub}")
     else:
       return self.validate_dir(_sub)
@@ -842,12 +841,6 @@ class FileSystemUtility(LoggingUtility):
 
     return _fpath
 
-  def file_name(self, *args, **kwargs):
-    """
-      @alias filename
-    """
-    return self.filename(*args, **kwargs)
-
   def filename(self, *args, **kwargs):
     """
       @function
@@ -883,16 +876,10 @@ class FileSystemUtility(LoggingUtility):
 
     return None
 
-  def file_ext(self, *args, **kwargs):
-    """
-      @alias ext
-    """
-    return self.ext(*args, **kwargs)
+  file_name = filename
 
-  def ext(self, *args, **kwargs):
-    """
-      @function
-      Returns file fxtension
+  def file_ext(self, *args, **kwargs):
+    """Returns file fxtension
 
       @params
       0|file_path
@@ -906,6 +893,11 @@ class FileSystemUtility(LoggingUtility):
     _file_path = _file_path.rsplit(_delimiter, _num_ext) # str.removesuffix
     _file_path = f"{_delimiter}".join(_file_path[-_num_ext:])
     return _file_path
+
+  get_extension = file_ext
+  get_ext = file_ext
+  file_extension = file_ext
+  ext = file_ext
 
   def split_file(self, *args, **kwargs):
     # TODO
