@@ -26,5 +26,7 @@ class UtilityManager(FileSystemUtility):
     if 'plot' in _purpose:
       _res.append(self.require('matplotlib.pyplot', "PLOT"))
       _res.append(self.require('seaborn', "SNS"))
+      # Plot default config for publication?
+      self.PLOT.rcParams.update({'font.size': 24, 'font.family': 'Times New Roman'})
 
     return all(_res)

@@ -1,8 +1,3 @@
-__package__ = "UtilityLib"
-__version__ = '2.8'
-__subversion__ = "20240320"
-__author__ = "Vishal Kumar Sahu"
-
 from .TimeUtility import TimeUtility
 from .DataUtility import DataUtility
 from .CommandUtility import CommandUtility
@@ -15,13 +10,8 @@ from .ProjectManager import ProjectManager, ObjDict
 __all__ = ["CommandUtility", "DataUtility", "FileSystemUtility", "UtilityManager", "easyUtility", "EU", "UM"]
 
 @UtilityManager
-def UM():
-  ...
-
-@UtilityManager
-def EU():
-  ...
-
-@UtilityManager
 def easyUtility():
   ...
+
+EU = easyUtility
+UM = easyUtility

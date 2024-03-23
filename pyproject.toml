@@ -1,0 +1,26 @@
+[build-system]
+requires = ["setuptools>=68.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "UtilityLib"
+version = "2.9.202403"
+authors = [
+  { name="Vishal Kumar Sahu", email="mail@vishalkumarsahu.in" },
+]
+description = "UtilityLib"
+readme = "README.md"
+requires-python = ">=3.8"
+classifiers = [
+  "Programming Language :: Python :: 3",
+  "Operating System :: OS Independent",
+]
+dependencies = [
+  'xmltodict',
+  'sqlalchemy',
+  'psutil',
+]
+
+[project.urls]
+Homepage = "https://github.com/TheBiomics/UtilityLib"
+Issues = "https://github.com/TheBiomics/UtilityLib/issues"

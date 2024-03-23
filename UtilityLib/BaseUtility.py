@@ -4,6 +4,7 @@ import os as OS
 
 class BaseUtility:
   name = "UtilityLib"
+
   def __init__(self, *args, **kwargs):
     self.__defaults = {
       "_imported_modules": [],
@@ -13,20 +14,22 @@ class BaseUtility:
     self.update_attributes(self, self.__defaults)
 
   def is_running(self, *args, **kwargs):
-    _file = args[0] if len(args) > 0 else kwargs.get("file", "process-v2.txt")
+    _file = args[0] if len(args) > 0 else kwargs.get("file", "UtilityLib-Processes-v2.txt")
     _dir = args[1] if len(args) > 1 else kwargs.get("dir", 'Documents/PyProcessConfig')
 
-    _path_user_settings = OS.path.join(OS.path.expanduser('~'), _dir)
+    self.OS = OS
+
+    _path_user_settings = self.OS.path.join(self.OS.path.expanduser('~'), _dir)
     _path_file_pid = f"{_path_user_settings}/{_file}"
 
-    if not OS.path.exists(_path_user_settings):
-      OS.makedirs(_path_user_settings)
+    if not self.OS.path.exists(_path_user_settings):
+      self.OS.makedirs(_path_user_settings)
 
     _current_pid = getpid()
 
     from psutil import pid_exists, Process
 
-    if OS.path.exists(_path_file_pid):
+    if self.OS.path.exists(_path_file_pid):
       with open(_path_file_pid) as f:
         pid = f.read()
         pid = int(pid) if pid.isnumeric() else None
@@ -54,8 +57,7 @@ class BaseUtility:
     if object is None:
       object = self
 
-    if isinstance(kw.get('path_bases'), (list, tuple)):
-      self.set_directories(**kw)
+    self.set_directories(**kw)
 
     [setattr(object, _k, defaults[_k]) for _k in defaults.keys() if not hasattr(object, _k)]
     [setattr(object, _k, kw[_k]) for _k in kw.keys()]
@@ -70,7 +72,7 @@ class BaseUtility:
       self.path_base = _path_bases[1] if self.is_windows else _path_bases[0]
     elif isinstance(_path_bases, (dict)):
       # ToDo: first linux, then windows
-      self.path_base = self.set_directories(path_bases=_path_bases.values())
+      self.set_directories(path_bases=_path_bases.values())
 
   def __call__(self, *args, **kwargs):
     self.update_attributes(self, kwargs)

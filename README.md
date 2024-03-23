@@ -51,15 +51,14 @@ EU.add_tgz_files(f"{path_scrapped_queries}/WOS-Downloads.tgz", _wos_files)
 EU.delete_path(f"{path_scrapped_queries}/WOS-Downloads")
 ```
 
-# ToDo
-- `require_from` GitHub
-- Saving file hashes to check if file has changed ever since last accessed
-
-# Requirements
-* xmltodict
-* sqlalchemy
+---
 
 # Version Updates
+
+## 2.8
+
+* Method aliases
+* Setup whl build system
 
 ## 2.6
 ### 20221103
