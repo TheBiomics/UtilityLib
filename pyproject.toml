@@ -4,11 +4,11 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "UtilityLib"
-version = "2.9.202403"
+description = "Python Helper for Repetitive Tasks with File and Data Management"
+version = "2.9.20240323"
 authors = [
   { name="Vishal Kumar Sahu", email="mail@vishalkumarsahu.in" },
 ]
-description = "UtilityLib"
 readme = "README.md"
 requires-python = ">=3.8"
 classifiers = [
@@ -19,6 +19,8 @@ dependencies = [
   'xmltodict',
   'sqlalchemy',
   'psutil',
+  'pandas',
+  'seaborn',
 ]
 
 [project.urls]

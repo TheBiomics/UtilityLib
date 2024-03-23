@@ -4,7 +4,6 @@ import os as OS
 
 class BaseUtility:
   name = "UtilityLib"
-
   def __init__(self, *args, **kwargs):
     self.__defaults = {
       "_imported_modules": [],
@@ -57,13 +56,17 @@ class BaseUtility:
     if object is None:
       object = self
 
-    self.set_directories(**kw)
+    if hasattr(self, 'path_base') and not self.path_base:
+      self.path_base = self.OS.getcwd()
+
+    if isinstance(kw.get('path_bases'), (list, tuple)):
+      self.set_directories(**kw)
 
     [setattr(object, _k, defaults[_k]) for _k in defaults.keys() if not hasattr(object, _k)]
     [setattr(object, _k, kw[_k]) for _k in kw.keys()]
 
   def set_directories(self, *args, **kwargs):
-    _path_bases = args[0] if len(args) > 0 else kwargs.get("path_bases", self.OS.getcwd())
+    _path_bases = args[0] if len(args) > 0 else kwargs.get("path_bases", self.path_base)
     # Consider first path is for Linux and second path is for Windows
     if isinstance(_path_bases, (str)):
       self.path_base = _path_bases
@@ -72,14 +75,16 @@ class BaseUtility:
       self.path_base = _path_bases[1] if self.is_windows else _path_bases[0]
     elif isinstance(_path_bases, (dict)):
       # ToDo: first linux, then windows
-      self.set_directories(path_bases=_path_bases.values())
+      self.path_base = self.set_directories(path_bases=_path_bases.values())
 
   def __call__(self, *args, **kwargs):
     self.update_attributes(self, kwargs)
     return self
 
-  def __str__(self):
-    return "@ToDo: implement str magic."
+  def __repr__(self):
+    return f"{self.name}: Use help() function to see the list of all methods."
+
+  __str__ = __repr__
 
   def set_system_type(self, *args, **kwargs):
     self.is_windows = False
