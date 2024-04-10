@@ -21,6 +21,8 @@ dependencies = [
   'psutil',
   'pandas',
   'seaborn',
+  'tqdm',
+  'toml',
 ]
 
 [project.urls]

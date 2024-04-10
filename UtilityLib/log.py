@@ -1,15 +1,7 @@
-from .DatabaseUtility import DatabaseUtility
+from .db import DatabaseUtility
 
 class LoggingUtility(DatabaseUtility):
-  terminal_colors = {
-      "blue": 4,
-      "green": 2,
-      "white": 255,
-      "orange": 202,
-      "red": 1,
-    }
-
-  terminal_bg_colors = {
+  _terminal_bg_colors = {
       "black": 40,
       "red": 41,
       "green": 42,
@@ -20,7 +12,7 @@ class LoggingUtility(DatabaseUtility):
       "white": 47,
     }
 
-  terminal_fg_colors = {
+  _terminal_fg_colors = {
       "black": 30,
       "red": 31,
       "green": 32,
@@ -31,7 +23,7 @@ class LoggingUtility(DatabaseUtility):
       "white": 37,
     }
 
-  terminal_text_styles = {
+  _terminal_text_styles = {
       "regular": 0,
       "bold": 1,
       "low_intensity": 2,
@@ -43,23 +35,25 @@ class LoggingUtility(DatabaseUtility):
       "invisible": 8,
     }
 
+  print_log = True
+  step_log = False
+  step_pause = False
+
   def __init__(self, *args, **kwargs):
     self.__defaults = {
-        "print_message": True,
-        "type": "info",
+        "log_type": "info",
         "last_message": None,
         "log_file_path": ".",
         "log_file_name": "app-process.log",
         "log_table_name": "db_watchdog",
         "log_status": {
-            "success": LoggingUtility.highlight_terminal_text("[SUCCESS]", "black", 'green'),
-            "info": LoggingUtility.highlight_terminal_text("[INFO]", "black", 'cyan'),
-            "debug": LoggingUtility.highlight_terminal_text("[DEBUG]", "black", 'magenta', text_style="italic"),
-            "warning": LoggingUtility.highlight_terminal_text("[WARNING]", "black", 'yellow'),
-            "fail": LoggingUtility.highlight_terminal_text("[FAIL]", "black", 'red', text_style="blink"),
-            "error": LoggingUtility.highlight_terminal_text("[ERROR]", "black", 'red'),
+            "success": LoggingUtility._highlight_terminal_text("[SUCCESS]", "black", 'green'),
+            "info": LoggingUtility._highlight_terminal_text("[INFO]", "black", 'cyan'),
+            "debug": LoggingUtility._highlight_terminal_text("[DEBUG]", "black", 'magenta', text_style="italic"),
+            "warning": LoggingUtility._highlight_terminal_text("[WARNING]", "black", 'yellow'),
+            "fail": LoggingUtility._highlight_terminal_text("[FAIL]", "black", 'red', text_style="blink"),
+            "error": LoggingUtility._highlight_terminal_text("[ERROR]", "black", 'red'),
           },
-        "step": False,
       }
 
     self.__defaults.update(kwargs)
@@ -68,10 +62,10 @@ class LoggingUtility(DatabaseUtility):
     self.require_many([("pandas", "PD"), ("textwrap", "TextWrapper")])
 
   @staticmethod
-  def highlight_terminal_text(text, bg_color="blue", fg_color="white", text_style="regular", placeholder_size=11):
-    bg_color_code = LoggingUtility.terminal_bg_colors.get(bg_color, 4)
-    fg_color_code = LoggingUtility.terminal_fg_colors.get(fg_color, 37)
-    text_style_code = LoggingUtility.terminal_text_styles.get(text_style, 0)
+  def _highlight_terminal_text(text, bg_color="blue", fg_color="white", text_style="regular", placeholder_size=11):
+    bg_color_code = LoggingUtility._terminal_bg_colors.get(bg_color, 4)
+    fg_color_code = LoggingUtility._terminal_fg_colors.get(fg_color, 37)
+    text_style_code = LoggingUtility._terminal_text_styles.get(text_style, 0)
     placeholder_size_fs = f">{placeholder_size}"
 
     if False:
@@ -83,18 +77,19 @@ class LoggingUtility(DatabaseUtility):
     self.update_attributes(self, kwargs)
     _wrap_message = kwargs.get("log_wrap", True)
     _db_log = []
+    _log_type = kwargs.get('log_type', self.log_type)
 
     for _message in args:
-      if hasattr(self, 'print_message') and self.print_message == True:
-        _print_msg = f"{self.log_status[self.type]} [{self.time_elapsed()}] {str(_message)}"
+      if self.print_log == True:
+        _print_msg = f"{self.log_status[_log_type]} [{self.time_elapsed()}] {str(_message)}"
         if _wrap_message:
           _print_msg = self.TextWrapper.fill(_print_msg, width=80, subsequent_indent=" "*11)
 
-        _log = getattr(self.LOGGER, self.type, 'info')
+        _log = getattr(self.LOGGER, _log_type, 'info')
         _log(_print_msg)
 
       _db_log.append({
-        "type": self.type,
+        "type": _log_type,
         "message": str(_message),
         "time": self.time_get()
       })
@@ -113,29 +108,25 @@ class LoggingUtility(DatabaseUtility):
       self.update_attributes(self, {"step": False})
 
   def log_info(self, *args, **kwargs):
-    kwargs.update({"type": "info"})
-    for _m in args:
-      self.LOGGER.info(_m)
+    kwargs.update({"log_type": "info"})
     return self.__log(*args, **kwargs)
 
   def log_debug(self, *args, **kwargs):
-    kwargs.update({"type": "debug"})
-    for _m in args:
-      self.LOGGER.debug(_m)
+    kwargs.update({"log_type": "debug"})
     return self.__log(*args, **kwargs)
 
   def log_warning(self, *args, **kwargs):
-    kwargs.update({"type": "warning"})
+    kwargs.update({"log_type": "warning"})
     return self.__log(*args, **kwargs)
 
   def log_error(self, *args, **kwargs):
-    kwargs.update({"type": "error"})
+    kwargs.update({"log_type": "error"})
     return self.__log(*args, **kwargs)
 
   def log_success(self, *args, **kwargs):
-    kwargs.update({"type": "success"})
+    kwargs.update({"log_type": "success"})
     return self.__log(*args, **kwargs)
 
   def log_fail(self, *args, **kwargs):
-    kwargs.update({"type": "fail"})
+    kwargs.update({"log_type": "fail"})
     return self.__log(*args, **kwargs)

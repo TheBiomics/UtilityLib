@@ -1,4 +1,4 @@
-from .UtilityManager import UtilityManager
+from .utility import UtilityManager
 import copy as COPY_Mod
 
 class ObjDict(dict):
@@ -162,39 +162,66 @@ class ObjDict(dict):
   def unfreeze(self):
     self.freeze(False)
 
-# Keeping
+# Backward compatibility
 Dict = ObjDict
+DotDict = ObjDict
 
 class ProjectManager(UtilityManager):
   name = "project"
   version = 1
-  subversion = 20220000
+  subversion = 20240400
+  path_config = None
 
   def __init__(self, *args, **kwargs):
-    self.__defaults = {"debug": False, "key_config": "config"}
+    self.__defaults = {"debug": False, "config_key": "config"}
     self.__defaults.update(kwargs)
     super(ProjectManager, self).__init__(**self.__defaults)
+    self.set_project_paths()
     self.load_config()
 
-  def set_path_config(self, *args, **kwargs):
+  def write_toml(self, *args, **kwargs):
+    """Write configuration in readable format"""
+    # import toml
+    # _config = toml.dumps(self.config)
+
+  def set_project_paths(self, *args, **kwargs):
+    if not getattr(self, 'path_base'):
+      self.path_base = self.OS.getcwd()
+
+    _path_bases = args[0] if len(args) > 0 else kwargs.get("path_bases", self.path_base)
+
+    # Consider first path for Linux and second path for Windows
+    if isinstance(_path_bases, (str)):
+      self.path_base = _path_bases
+    elif isinstance(_path_bases, (list, tuple)):
+      _path_bases = _path_bases * 2
+      self.path_base = _path_bases[1] if self.is_windows else _path_bases[0]
+    elif isinstance(_path_bases, (dict)):
+      # Consider that order of the dict is preserved
+      self.path_base = self.set_project_paths(path_bases=_path_bases.values())
+
+  def set_config_path(self, *args, **kwargs):
     self.update_attributes(self, kwargs, self.__defaults)
     self.path_config = (
       f"{self.path_base}/{self.name}.v{self.version}.{self.subversion}.config.gz"
     )
 
   def rebuild_config(self, *args, **kwargs):
-    setattr(self, self.key_config, self.ConfigManager(getattr(self, self.key_config, ObjDict())))
+    """Read config again"""
+    setattr(self, self.config_key, self.ConfigManager(getattr(self, self.config_key, ObjDict())))
 
   def reset_config(self, *args, **kwargs):
     self.update_attributes(self, kwargs, self.__defaults)
     return self.load_config(**kwargs)
 
   def load_config(self, *args, **kwargs):
-    self.set_path_config()
+    if not getattr(self, 'path_config'):
+      self.set_config_path()
+
     self.ConfigManager = ObjDict
-    setattr(self, self.key_config, self.ConfigManager())
-    if self.exists(self.path_config):
-      setattr(self, self.key_config, self.unpickle(self.path_config))
+    setattr(self, self.config_key, self.ConfigManager())
+    if self.check_path(self.path_config):
+      setattr(self, self.config_key, self.unpickle(self.path_config))
 
     self.rebuild_config()
 
@@ -203,10 +230,10 @@ class ProjectManager(UtilityManager):
 
   def update_config(self, *args, **kwargs):
     self.update_attributes(self, kwargs, self.__defaults)
-    self.set_path_config()
+    self.set_config_path()
     self.rebuild_config()
 
-    _config = getattr(self, self.key_config, ObjDict())
+    _config = getattr(self, self.config_key, ObjDict())
     _config.last_updated = self.time_stamp()
     self.pickle(self.path_config, _config)
 
@@ -221,7 +248,7 @@ class ProjectManager(UtilityManager):
     _def_prepend = args[3] if len(args) > 3 else kwargs.get("default", "")
 
     if not _key is None:
-      _static_config = getattr(self, self.key_config)
+      _static_config = getattr(self, self.config_key)
       _def_prepend = _static_config.get(_key, "")
 
     return f"{_glue}".join([_def_prepend, _val])

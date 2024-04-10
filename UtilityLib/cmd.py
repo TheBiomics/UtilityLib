@@ -1,19 +1,21 @@
-import os as OS
 import shlex as SHELLX
 
-import subprocess as SubProcess
-import multiprocessing as MultiProcessing
-from tqdm.auto import tqdm as ProgressBar
+import subprocess as PySubProcess
+import multiprocessing as PyMultiProcessing
+from tqdm.auto import tqdm as TQDMProgressBar
 
-from .DataUtility import DataUtility
+from .data import DataUtility
 
 class CommandUtility(DataUtility):
+  ProgressBar = TQDMProgressBar
+  PB = ProgressBar
+  TQDM = ProgressBar
+  MultiProcess = PyMultiProcessing
+  SubProcess = PySubProcess
   def __init__(self, *args, **kwargs):
     self.__defaults = {
         "debug": False,
         "config": [],
-        "ProgressBar": ProgressBar, # ProgressBar(iterable, position=0, leave=True)
-        "PB": ProgressBar,
         "cpu_count": None,
         "processes": []
       }
@@ -23,7 +25,7 @@ class CommandUtility(DataUtility):
   def multiprocess_start(self, *args, **kwargs):
     _processes = args[0] if len(args) > 0 else kwargs.get("processes", getattr(self, "processes"))
 
-    self.cpu_count = MultiProcessing.cpu_count()
+    self.cpu_count = self.MultiProcess.cpu_count()
     # Start job in chunks
     for _batch in self.chunks(_processes, round(self.cpu_count/5)):
       for _job in _batch:
@@ -40,22 +42,22 @@ class CommandUtility(DataUtility):
     _args = args[1] if len(args) > 1 else kwargs.get("args")
     _kwargs = args[2] if len(args) > 2 else kwargs.get("kwargs", {})
 
-    _process = MultiProcessing.Process(target=_target, args=_args, kwargs=_kwargs, daemon=True)
+    _process = self.MultiProcess.Process(target=_target, args=_args, kwargs=_kwargs, daemon=True)
     self.processes.append(_process)
     return _process
 
   def cmd_is_exe(self, fpath):
-    return OS.path.isfile(fpath) and OS.access(fpath, OS.X_OK)
+    return self.OS.path.isfile(fpath) and self.OS.access(fpath, self.OS.X_OK)
 
   def cmd_which(self, program):
-    fpath, fname = OS.path.split(program)
+    fpath, fname = self.OS.path.split(program)
     if fpath:
       if self.is_exe(program):
         return program
     else:
-      for path in OS.environ["PATH"].split(OS.pathsep):
+      for path in self.OS.environ["PATH"].split(self.OS.pathsep):
         path = path.strip('"')
-        exe_file = OS.path.join(path, program)
+        exe_file = self.OS.path.join(path, program)
         if self.is_exe(exe_file):
           return exe_file
     return None
@@ -66,7 +68,7 @@ class CommandUtility(DataUtility):
     if isinstance(_command, str):
       _command = _command.split()
 
-    process = SubProcess.call(_command, shell=True)
+    process = self.SubProcess.call(_command, shell=True)
     return process
 
   def cmd_run(self, *args, **kwargs):
@@ -81,7 +83,7 @@ class CommandUtility(DataUtility):
 
     _output = None
 
-    _process = SubProcess.Popen(_command, stdout=SubProcess.PIPE, universal_newlines=_newlines)
+    _process = self.SubProcess.Popen(_command, stdout=self.SubProcess.PIPE, universal_newlines=_newlines)
     _output, _error = _process.communicate()
 
     return _output
@@ -94,10 +96,11 @@ class CommandUtility(DataUtility):
     return _flattened
 
   def unregistered_arg_parser(self, *args, **kwargs):
-    """
-      Processes uregistered arguments from commandline
+    """Processes uregistered arguments from commandline
+
       @accepts
       List/Tuple
+
       @return
       dict() with/out values
     """
@@ -131,25 +134,13 @@ class CommandUtility(DataUtility):
       return
 
   def init_cli(self, *args, **kwargs):
-    import argparse as ARGUMENT
+    self.require('argparse', 'ArgParser')
+
     _version = args[0] if len(args) > 0 else kwargs.get("version", "unknown")
-    self.cmd_arg_parser = ARGUMENT.ArgumentParser(prog=_version)
+    self.cmd_arg_parser = self.ArgParser.ArgumentParser(prog=_version)
     self.cmd_arg_parser.add_argument('-v', '--version', action='version', version=_version)
 
-  def get_cli_args_v2(self):
-    """
-      WIP
-    """
-    from absl import app
-    from absl import flags
-    from absl import logging
-
-    flags.DEFINE_list(
-        'fasta_paths', None, 'Paths to FASTA files, each containing a prediction '
-        'target that will be folded one after another. If a FASTA file contains ')
-
   def get_cli_args(self, *args, **kwargs):
-
     """
       @example
 

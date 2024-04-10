@@ -10,7 +10,6 @@
 # Examples
 
 ```python
-# Append package path to PYTHONPATH or use sys.path.append method to append parent directory's path
 
 # 1
 from UtilityLib import EU
@@ -50,6 +49,17 @@ _wos_files = EU.search(f"{path_scrapped_queries}/WOS-Downloads", "*.csv")
 EU.add_tgz_files(f"{path_scrapped_queries}/WOS-Downloads.tgz", _wos_files)
 EU.delete_path(f"{path_scrapped_queries}/WOS-Downloads")
 ```
+
+# ToDo
+
+* Create sub-modules to group similar functionalities
+  * Separate commandline processor
+  * Use wxPython to provide GUI interface for file selection, configuration, etc
+* Separate pipeline to import or install modules
+* XML/JSON to DataFrame
+  * `xml_to_df(columns=["key1.key2.key3", "key1.key2.0.1.key3", ...])`
+* Prepare extensive documentation
+* Use python's caching and decorators to speed up the results
 
 ---
 

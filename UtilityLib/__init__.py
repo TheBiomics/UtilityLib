@@ -1,17 +1,25 @@
-from .TimeUtility import TimeUtility
-from .DataUtility import DataUtility
-from .CommandUtility import CommandUtility
-from .DatabaseUtility import DatabaseUtility
-from .LoggingUtility import LoggingUtility
-from .FileSystemUtility import FileSystemUtility
-from .UtilityManager import UtilityManager
-from .ProjectManager import ProjectManager, ObjDict
+from .time import TimeUtility
+from .data import DataUtility
+from .cmd import CommandUtility
+from .db import DatabaseUtility
+from .log import LoggingUtility
+from .file import FileSystemUtility
+from .utility import UtilityManager
+from .project import ProjectManager, ObjDict
 
-__all__ = ["CommandUtility", "DataUtility", "FileSystemUtility", "UtilityManager", "easyUtility", "EU", "UM"]
+__all__ = ["TimeUtility", "DataUtility", "CommandUtility", "DatabaseUtility", "LoggingUtility", "FileSystemUtility", "UtilityManager", "ProjectManager", "ObjDict"]
 
 @UtilityManager
-def easyUtility():
+def _UtilityManager():
   ...
 
-EU = easyUtility
-UM = easyUtility
+UM = _UtilityManager
+
+
+@ProjectManager
+def _ProjectManager():
+  ...
+
+easyUtility = _ProjectManager
+EU = _ProjectManager
+PM = _ProjectManager

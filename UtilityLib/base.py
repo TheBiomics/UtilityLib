@@ -1,22 +1,21 @@
 import importlib as MODULE_IMPORTER
-from os import getpid
-import os as OS
+
+import os as OperatingSystem
 
 class BaseUtility:
   name = "UtilityLib"
+  OS = OperatingSystem
+  path_base = None
+  _imported_modules = []
   def __init__(self, *args, **kwargs):
-    self.__defaults = {
-      "_imported_modules": [],
-    }
+    self.__defaults = {}
     self.__defaults.update(kwargs)
-    self.set_system_type(**self.__defaults)
+    self._set_os_type(**self.__defaults)
     self.update_attributes(self, self.__defaults)
 
   def is_running(self, *args, **kwargs):
     _file = args[0] if len(args) > 0 else kwargs.get("file", "UtilityLib-Processes-v2.txt")
     _dir = args[1] if len(args) > 1 else kwargs.get("dir", 'Documents/PyProcessConfig')
-
-    self.OS = OS
 
     _path_user_settings = self.OS.path.join(self.OS.path.expanduser('~'), _dir)
     _path_file_pid = f"{_path_user_settings}/{_file}"
@@ -24,8 +23,9 @@ class BaseUtility:
     if not self.OS.path.exists(_path_user_settings):
       self.OS.makedirs(_path_user_settings)
 
-    _current_pid = getpid()
+    _current_pid = self.OS.getpid()
 
+    # Import psutil
     from psutil import pid_exists, Process
 
     if self.OS.path.exists(_path_file_pid):
@@ -50,32 +50,13 @@ class BaseUtility:
     self.LOGGER_WARNING = logging.getLogger('py.warnings')
 
   def update_attributes(self, object=None, kw=dict(), defaults=dict()):
-    """
-      Sets attribute (dict) values and defaults
+    """Sets and updates object attributes from dict
     """
     if object is None:
       object = self
 
-    if hasattr(self, 'path_base') and not self.path_base:
-      self.path_base = self.OS.getcwd()
-
-    if isinstance(kw.get('path_bases'), (list, tuple)):
-      self.set_directories(**kw)
-
     [setattr(object, _k, defaults[_k]) for _k in defaults.keys() if not hasattr(object, _k)]
     [setattr(object, _k, kw[_k]) for _k in kw.keys()]
-
-  def set_directories(self, *args, **kwargs):
-    _path_bases = args[0] if len(args) > 0 else kwargs.get("path_bases", self.path_base)
-    # Consider first path is for Linux and second path is for Windows
-    if isinstance(_path_bases, (str)):
-      self.path_base = _path_bases
-    elif isinstance(_path_bases, (list, tuple)):
-      _path_bases = _path_bases * 2
-      self.path_base = _path_bases[1] if self.is_windows else _path_bases[0]
-    elif isinstance(_path_bases, (dict)):
-      # ToDo: first linux, then windows
-      self.path_base = self.set_directories(path_bases=_path_bases.values())
 
   def __call__(self, *args, **kwargs):
     self.update_attributes(self, kwargs)
@@ -86,35 +67,33 @@ class BaseUtility:
 
   __str__ = __repr__
 
-  def set_system_type(self, *args, **kwargs):
+  def _set_os_type(self, *args, **kwargs):
     self.is_windows = False
     self.is_linux = False
-    self.OS = OS
+
     if self.OS.name == "nt":
       self.is_windows = True
     else:
       self.is_linux = True
 
+  set_system_type = _set_os_type
+
   def require_from(self, *args, **kwargs):
-    """
-    @extends require
+    """@extends require
     To import from a given path by adding the path to the system
 
     @params
-    0|path:
+    0|module_path:
     1|module:
     """
-
-    _module_path = args[0] if len(args) > 0 else kwargs.get("module_path", "")
+    _module_path = args.pop(0) if len(args) > 0 else kwargs.get("module_path", "")
     self.require("sys", "SYSTEM")
     self.SYSTEM.path.append(_module_path)
-    args = args[1:]
     self.require(*args, **kwargs)
     return self
 
   def require_many(self, *args, **kwargs):
-    """
-    @extends require
+    """@extends require
     for multiple imports in single call
 
     @params
@@ -136,11 +115,10 @@ class BaseUtility:
     return all(self._enabled_modules)
 
   def require(self, *args, **kwargs):
-    """"
-      Help providing module through the utility.
+    """"Import module in the run time from the utility.
 
       @usage
-      require(module_name, provide_as, alternate_if_not_available)
+      require(module_name, import_as, alternate_if_not_available)
 
       @params
       0|module (str):
@@ -162,6 +140,9 @@ class BaseUtility:
       return True
 
     _module_instance = None
+
+    self.set_logging()
+
     try:
       __i = MODULE_IMPORTER.import_module(_module)
       # self.log_info(f"Imported {_module}")
