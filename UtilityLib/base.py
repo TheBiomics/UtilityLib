@@ -1,12 +1,21 @@
+from .__metadata__ import __version__, __description__, __build__, __name__
 import importlib as MODULE_IMPORTER
-
 import os as OperatingSystem
 
 class BaseUtility:
+  __name__= __name__
+  __version__= __version__
+  __build__= __build__
+  __description__= __description__
   name = "UtilityLib"
   OS = OperatingSystem
+  os_type = None
+  is_windows = None
+  is_linux = None
   path_base = None
+
   _imported_modules = []
+
   def __init__(self, *args, **kwargs):
     self.__defaults = {}
     self.__defaults.update(kwargs)
@@ -49,14 +58,22 @@ class BaseUtility:
     self.LOGGER.setLevel(logging.INFO)
     self.LOGGER_WARNING = logging.getLogger('py.warnings')
 
-  def update_attributes(self, object=None, kw=dict(), defaults=dict()):
+  def _setattrs(self, kw):
+    """set multiple attributes from dict"""
+
+    [setattr(self, _k, kw[_k]) for _k in kw.keys()]
+
+  set_attributes = _setattrs
+  setattrs = _setattrs
+
+  def update_attributes(self, obj=None, kw=dict(), defaults=dict()):
     """Sets and updates object attributes from dict
     """
-    if object is None:
-      object = self
+    if obj is None:
+      obj = self
 
-    [setattr(object, _k, defaults[_k]) for _k in defaults.keys() if not hasattr(object, _k)]
-    [setattr(object, _k, kw[_k]) for _k in kw.keys()]
+    [setattr(obj, _k, defaults[_k]) for _k in defaults.keys() if not hasattr(obj, _k)]
+    [setattr(obj, _k, kw[_k]) for _k in kw.keys()]
 
   def __call__(self, *args, **kwargs):
     self.update_attributes(self, kwargs)
@@ -68,13 +85,14 @@ class BaseUtility:
   __str__ = __repr__
 
   def _set_os_type(self, *args, **kwargs):
-    self.is_windows = False
-    self.is_linux = False
-
     if self.OS.name == "nt":
       self.is_windows = True
+      self.is_linux = False
+      self.os_type = 'windows'
     else:
       self.is_linux = True
+      self.is_windows = False
+      self.os_type = 'linux'
 
   set_system_type = _set_os_type
 

@@ -109,7 +109,7 @@ class DataUtility(TimeUtility):
       0|excel: Either openpyxl writer or path to excel
       1|df: Pandas DataFrame to be written
       2|sheet: Name of the sheet
-      3|excel_options: Options for PD.to_excel
+      3|excel_options: Options for PD.to_excel e.g., {'index': False, 'float_format': "%.4f"}
       4|pyxl_options: Options (like engine, mode) for PD.ExcelWriter
 
     Returns:
@@ -176,6 +176,8 @@ class DataUtility(TimeUtility):
 
   digits = parse_digits
   digit_only = parse_digits
+  parseInt = parse_digits
+  parse_int = parse_digits
 
   def re_compile(self, *args, **kwargs):
     _pattern = args[0] if len(args) > 0 else kwargs.get("pattern")

@@ -16,9 +16,14 @@ class UtilityManager(FileSystemUtility):
 
     """
     _purpose = args[0] if len(args) > 0 else kwargs.get("data") # plot
+    _purpose = str(_purpose).lower()
 
     # Get data libraries
     _res = []
+
+    if 'ml' in _purpose:
+      # LOAD ML Libraries
+      ...
 
     if 'data' in _purpose:
       _res.append(self.require('pandas', 'PD'))

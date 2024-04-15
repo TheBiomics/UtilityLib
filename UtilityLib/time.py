@@ -53,11 +53,14 @@ class TimeUtility(BaseUtility):
   def time_end(self, *args, **kwargs):
     return self.time_get() - self.start_time
 
-  def time_sleep(self, *args, **kwargs):
-    return self.time_pause(*args, **kwargs)
-
-  def time_pause(self, *args, **kwargs):
+  def _sleep(self, *args, **kwargs):
     self.update_attributes(self, kwargs)
     self.duration = args[0] if len(args) > 0 else kwargs.get("duration", getattr(self, "duration"))
     self.require("time", "TIME")
     self.TIME.sleep(self.duration)
+
+  sleep = _sleep
+  wait = _sleep
+  time_break = _sleep
+  time_pause = _sleep
+  time_sleep = _sleep
