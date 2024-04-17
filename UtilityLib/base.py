@@ -1,6 +1,7 @@
 from .__metadata__ import __version__, __description__, __build__, __name__
 import importlib as MODULE_IMPORTER
 import os as OperatingSystem
+from functools import lru_cache as CacheMethod
 
 class BaseUtility:
   __name__= __name__
@@ -66,6 +67,7 @@ class BaseUtility:
   set_attributes = _setattrs
   setattrs = _setattrs
 
+  @CacheMethod(maxsize=None)
   def update_attributes(self, obj=None, kw=dict(), defaults=dict()):
     """Sets and updates object attributes from dict
     """
@@ -132,6 +134,7 @@ class BaseUtility:
 
     return all(self._enabled_modules)
 
+  @CacheMethod(maxsize=None)
   def require(self, *args, **kwargs):
     """"Import module in the run time from the utility.
 

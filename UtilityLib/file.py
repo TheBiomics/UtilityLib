@@ -1,6 +1,4 @@
 from warnings import warn as WARN
-import shutil as SHUTIL
-import json as JSON
 from .log import LoggingUtility
 
 class FileSystemUtility(LoggingUtility):
@@ -8,6 +6,8 @@ class FileSystemUtility(LoggingUtility):
     self.__defaults = {}
     self.__defaults.update(kwargs)
     super(FileSystemUtility, self).__init__(**self.__defaults)
+    self.require('shutil', 'SHUTIL')
+    self.require('json', 'JSON')
 
   def backup(self, *args, **kwargs):
     _file = args[0] if len(args) > 0 else kwargs.get("file")
@@ -157,7 +157,7 @@ class FileSystemUtility(LoggingUtility):
     self.validate_dir(_destination)
 
     if self.check_path(_source):
-      SHUTIL.unpack_archive(_source, _destination)
+      self.SHUTIL.unpack_archive(_source, _destination)
       self.log_info(f"Extracted {_source} content in {_destination}.")
       return True
 
@@ -218,7 +218,7 @@ class FileSystemUtility(LoggingUtility):
     return _content
 
   def parse_jsonl_gz(self, *args, **kwargs):
-    kwargs.update({"processor_line": JSON.loads})
+    kwargs.update({"processor_line": self.JSON.loads})
     return self.read_gz_file(*args, **kwargs)
 
   def parse_latex(self, *args, **kwargs):
@@ -353,7 +353,7 @@ class FileSystemUtility(LoggingUtility):
       _content = self.read_text(_file_path, str)
       self.require("ast", "AbsSynTree")
       try:
-        _res_dict = JSON.loads(_content)
+        _res_dict = self.JSON.loads(_content)
       except:
         _res_dict = self.AbsSynTree.literal_eval(_content)
 
@@ -460,7 +460,7 @@ class FileSystemUtility(LoggingUtility):
     _destination = args[0] if len(args) > 0 else kwargs.get("destination")
     _content = args[1] if len(args) > 1 else kwargs.get("content", dict())
     if isinstance(_content, (dict)):
-      _json_data = JSON.dumps(_content, ensure_ascii=False)
+      _json_data = self.JSON.dumps(_content, ensure_ascii=False)
       self.write(_destination, _json_data)
     return self.check_path(_destination)
 
@@ -497,7 +497,7 @@ class FileSystemUtility(LoggingUtility):
     try:
       if not isinstance(_data, (str)):
         _data = XMLTree.tostring(_data, encoding='utf8', method='xml')
-      _res = JSON.loads(JSON.dumps(self.XMLTODICT.parse(_data)))
+      _res = self.JSON.loads(self.JSON.dumps(self.XMLTODICT.parse(_data)))
     except:
       self.log_info(f"Failed to convert XML to DICT. Some error occurred.")
     return _res
@@ -535,7 +535,7 @@ class FileSystemUtility(LoggingUtility):
     1|destination: path or string
 
     @usage
-    self._copy_from_to(_source, _destination)
+    REF._copy_from_to(_source, _destination)
 
     """
     _source = args[0] if len(args) > 0 else kwargs.get("source")
@@ -548,7 +548,7 @@ class FileSystemUtility(LoggingUtility):
     self.validate_dir(self.OS.path.dirname(_destination))
 
     self.log_info(f"Copying... {_source} to {_destination}.")
-    SHUTIL.copyfile(_source, _destination)
+    self.SHUTIL.copyfile(_source, _destination)
     return self.check_path(_destination)
 
   # Alias Added: 20240330
@@ -577,7 +577,7 @@ class FileSystemUtility(LoggingUtility):
       self.OS.remove(_path)
 
     elif self.OS.path.isdir(_path) and not _flag_files_only:
-      SHUTIL.rmtree(_path)
+      self.SHUTIL.rmtree(_path)
 
     return not self.check_path(_path)
 

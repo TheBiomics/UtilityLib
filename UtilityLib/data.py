@@ -1,4 +1,5 @@
 from .time import TimeUtility
+from functools import lru_cache as CacheMethod
 
 class DataUtility(TimeUtility):
   def __init__(self, *args, **kwargs):
@@ -28,6 +29,20 @@ class DataUtility(TimeUtility):
     if _key and (not _key in _df.columns) and (not 'index' in _df.columns):
         _df = _df.reset_index()
     return _df
+
+  @CacheMethod(maxsize=None)
+  def json_to_df(self, *args, **kwargs):
+    """@ToDo: JSON structure to DataFrame converter
+
+    0|json: JSON path/object
+    1|map: Dot notation of keys to to parse (parsable using UL.deepkey)
+
+    """
+    _json = args[0] if len(args) > 0 else kwargs.get("json")
+    _map = args[1] if len(args) > 1 else kwargs.get("map", dict())
+
+    ...
+
 
   def pd_categorical(self, df, col_name, sort=True):
       """
@@ -402,6 +417,7 @@ class DataUtility(TimeUtility):
     _result = max(_results, key=len) if len(_results) > 0 else ""
     return _result
 
+
   def get_deep_key(self, *args, **kwargs):
     """Get method to access nested key
 
@@ -435,16 +451,17 @@ class DataUtility(TimeUtility):
 
     return _obj
 
+  dotkey_value = get_deep_key
+
   def clean_key(self, *args, **kwargs):
-    """
-      Cleans a string to be used a key
+    """Cleans a string to be used a key
 
       @params
       0|text:
       1|keep:
 
       @ToDo:
-      - Remove special characts
+      - Remove special characters
       - remove bracket content flag
       - preserve or replace space with dash or underscore???
 

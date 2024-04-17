@@ -1,9 +1,5 @@
-import shlex as SHELLX
-
-import subprocess as PySubProcess
-import multiprocessing as PyMultiProcessing
+from functools import lru_cache as CacheMethod
 from tqdm.auto import tqdm as TQDMProgressBar
-
 from .data import DataUtility
 
 class CommandUtility(DataUtility):
@@ -22,45 +18,15 @@ class CommandUtility(DataUtility):
     self.__defaults.update(kwargs)
     super(CommandUtility, self).__init__(**self.__defaults)
 
-  def multiprocess_start(self, *args, **kwargs):
-    _processes = args[0] if len(args) > 0 else kwargs.get("processes", getattr(self, "processes"))
+  def cmd_is_exe(self, program):
+    return self.cmd_which(program) is not None
 
-    self.cpu_count = self.MultiProcess.cpu_count()
-    # Start job in chunks
-    for _batch in self.chunks(_processes, round(self.cpu_count/5)):
-      for _job in _batch:
-        if not _job.is_alive():
-          _job.start()
-      for _job in _batch:
-        _job.join()
-      for _job in _batch:
-        # Check if job is not yet exited
-        _job.terminate()
-
-  def multiprocess_add(self, *args, **kwargs):
-    _target = args[0] if len(args) > 0 else kwargs.get("target")
-    _args = args[1] if len(args) > 1 else kwargs.get("args")
-    _kwargs = args[2] if len(args) > 2 else kwargs.get("kwargs", {})
-
-    _process = self.MultiProcess.Process(target=_target, args=_args, kwargs=_kwargs, daemon=True)
-    self.processes.append(_process)
-    return _process
-
-  def cmd_is_exe(self, fpath):
-    return self.OS.path.isfile(fpath) and self.OS.access(fpath, self.OS.X_OK)
+  is_exe = cmd_is_exe
 
   def cmd_which(self, program):
-    fpath, fname = self.OS.path.split(program)
-    if fpath:
-      if self.is_exe(program):
-        return program
-    else:
-      for path in self.OS.environ["PATH"].split(self.OS.pathsep):
-        path = path.strip('"')
-        exe_file = self.OS.path.join(path, program)
-        if self.is_exe(exe_file):
-          return exe_file
-    return None
+    return self.SHUTIL.which(program)
+
+  which = cmd_which
 
   def cmd_call(self, *args, **kwargs):
     _command = args[0] if len(args) > 0 else kwargs.get("command")
@@ -78,8 +44,8 @@ class CommandUtility(DataUtility):
     if _command is None:
       return None
 
-    if isinstance(_command, str):
-      _command = SHELLX.split(_command)
+    if self.require('shlex', 'SHELLX') and isinstance(_command, str):
+      _command = self.SHELLX.split(_command)
 
     _output = None
 
@@ -186,3 +152,33 @@ class CommandUtility(DataUtility):
     _params = self.unregistered_arg_parser(_unreg_args)
     _params.update(_reg_args)
     return _params
+
+  # Multithreading
+  def init_multiprocessing(self, max_workers=None):
+    self.require('concurrent.futures', 'ConcurrentTasks')
+    self.QueueExecutor = self.ConcurrentTasks.futures.ThreadPoolExecutor(max_workers=max_workers)
+
+  @staticmethod
+  @CacheMethod(maxsize=None)
+  def _cache_wrapper(func, arg):
+    return func(arg)
+
+  def map_multiprocess(self, func, tasks):
+    """Perform multithreaded operations
+
+@example:
+def method_to_execute(arg):
+  # Example function to be cached
+  return arg ** 2
+
+_tasks = [1, 2, 3, 4, 5]
+
+_cu = CommandUtility()
+_cu.init_multiprocessing()
+_results = _cu.map_multiprocess(method_to_execute, _tasks)
+print(_results)
+
+"""
+    with self.QueueExecutor as _exe:
+      _future_results = [_exe.submit(self._cache_wrapper, func, arg) for arg in tasks]
+      return [_future.result() for _future in self.ConcurrentTasks.as_completed(_future_results)]
