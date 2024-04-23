@@ -10,7 +10,7 @@ class DatabaseUtility(CommandUtility):
         "is_connected": False,
       }
     self.__defaults.update(kwargs)
-    super(DatabaseUtility, self).__init__(**self.__defaults)
+    super().__init__(**self.__defaults)
 
   def set_tables(self, *args, **kwargs):
     from sqlalchemy import MetaData

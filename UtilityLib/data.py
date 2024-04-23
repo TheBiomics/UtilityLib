@@ -5,7 +5,7 @@ class DataUtility(TimeUtility):
   def __init__(self, *args, **kwargs):
     self.__defaults = {}
     self.__defaults.update(kwargs)
-    super(DataUtility, self).__init__(**self.__defaults)
+    super().__init__(**self.__defaults)
 
   # DataFrame Functions
   ## Pandas
@@ -30,19 +30,39 @@ class DataUtility(TimeUtility):
         _df = _df.reset_index()
     return _df
 
-  @CacheMethod(maxsize=None)
-  def json_to_df(self, *args, **kwargs):
-    """@ToDo: JSON structure to DataFrame converter
+  def _json_file_to_df(self, *args, **kwargs):
+    """JSON structure to DataFrame converter
 
-    0|json: JSON path/object
-    1|map: Dot notation of keys to to parse (parsable using UL.deepkey)
+    0|json: JSON file path (string)/object (dict)
+    1|map: Dot notation of keys to parse (parsable using UL.deepkey) i.e., column to key map e.g. entity|0|metadata|header
+
+    @return
+    Pandas DataFrame object
 
     """
     _json = args[0] if len(args) > 0 else kwargs.get("json")
-    _map = args[1] if len(args) > 1 else kwargs.get("map", dict())
+    _map = args[1] if len(args) > 1 else kwargs.get("map", None)
 
-    ...
+    if isinstance(_json, (str)):
+      _json = self.read_json(_json)
 
+    _result = []
+    for _json_el in _json:
+      _row = {}
+      if _map and isinstance(_map, (dict)):
+        # If column map is provided
+        for _key, _dotkey in _map.items():
+          _row[_key] = self.get_deep_key(_json_el, _dotkey)
+      else:
+        # If column map is not provided
+        for _key, _value in _json.items():
+          _row[_key] = _value
+
+      _result.append(_row)
+
+    return self.DF(_result)
+
+  json_to_df = _json_file_to_df
 
   def pd_categorical(self, df, col_name, sort=True):
       """
@@ -156,13 +176,22 @@ class DataUtility(TimeUtility):
     if self.require("pandas", "PD"):
       return self.PD.DataFrame(_data, **kwargs)
 
-  def pd_csv(self, *args, **kwargs):
-    return self.read_csv(*args, **kwargs)
-
-  def read_csv(self, *args, **kwargs):
+  def _csv_file_to_DF(self, *args, **kwargs):
+    """Read comma separated value file and convert to Pandas DataFrame"""
     _file = args[0] if len(args) > 0 else kwargs.get("file")
     if self.require("pandas", "PD"):
       return self.PD.read_csv(_file, **kwargs)
+
+  pd_csv = _csv_file_to_DF
+  read_csv = _csv_file_to_DF
+
+  def _tsv_file_to_DF(self, *args, **kwargs):
+    """Read tab delimited value file and convert to Pandas DataFrame"""
+    kwargs['sep'] = "\t"
+    return self.pd_csv(*args, **kwargs)
+
+  read_tsv = _tsv_file_to_DF
+  pd_tsv = _tsv_file_to_DF
 
   # Helpers
 
@@ -424,7 +453,8 @@ class DataUtility(TimeUtility):
       @params
       0|obj: dictionary
       1|keys: string, pipe separated string, list, tuple, set
-      2|default -> optional:
+      2|default:
+      3|sep: '|'
 
       @example
       get_deep_key(_dict, (key, subkey, subsubkey), _default)
@@ -435,16 +465,19 @@ class DataUtility(TimeUtility):
     _obj = args[0] if len(args) > 0 else kwargs.get("obj", {})
     _keys = args[1] if len(args) > 1 else kwargs.get("keys", ())
     _default = args[2] if len(args) > 2 else kwargs.get("default")
+    _sep = args[3] if len(args) > 3 else kwargs.get("sep", "|")
 
-    _list_objs = (tuple, set, list)
+    _instance_list = (tuple, set, list)
+    _instance_dict = (dict)
+    _instance_singluar = (str, int)
 
-    _keys = _keys if isinstance(_keys, _list_objs) else _keys.split("|")
+    _keys = _keys if isinstance(_keys, _instance_list) else _keys.split(_sep)
 
     for _k in _keys:
       # hasattr(, 'get') & str|int=> _dict key, int => list, tuple, or set
-      if isinstance(_obj, (dict)) and hasattr(_obj, 'get') and isinstance(_k, (str, int)):
+      if isinstance(_obj, _instance_dict) and hasattr(_obj, 'get') and isinstance(_k, _instance_singluar):
         _obj = _obj.get(_k, _default)
-      elif((isinstance(_k, int) or _k.isnumeric()) and isinstance(_obj, _list_objs)):
+      elif(isinstance(_obj, _instance_list) and (isinstance(_k, (int)) or _k.isnumeric())):
         _k = int(_k)
         if len(_obj) > _k:
           _obj = _obj[_k]

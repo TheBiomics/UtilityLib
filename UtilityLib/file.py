@@ -5,7 +5,7 @@ class FileSystemUtility(LoggingUtility):
   def __init__(self, *args, **kwargs):
     self.__defaults = {}
     self.__defaults.update(kwargs)
-    super(FileSystemUtility, self).__init__(**self.__defaults)
+    super().__init__(**self.__defaults)
     self.require('shutil', 'SHUTIL')
     self.require('json', 'JSON')
 
@@ -693,7 +693,7 @@ class FileSystemUtility(LoggingUtility):
 
     return self.check_path(_destination)
 
-  def search_dirs(self, *args, **kwargs):
+  def _search_dir_filter(self, *args, **kwargs):
     """Search directories using pattern
 
     """
@@ -702,9 +702,10 @@ class FileSystemUtility(LoggingUtility):
     _pattern = args[1] if len(args) > 1 else kwargs.get("pattern", "/*/")
     return self._search_path_pattern(_source, _pattern)
 
-  find_dirs = search_dirs
+  search_dirs = _search_dir_filter
+  find_dirs = _search_dir_filter
 
-  def search_files(self, *args, **kwargs):
+  def _search_file_filter(self, *args, **kwargs):
     """Search files using pattern
 
     """
@@ -714,8 +715,9 @@ class FileSystemUtility(LoggingUtility):
     return self._search_path_pattern(_source, _pattern)
 
   # added v2.8
-  find_files = search_files
-  search = search_files
+  search_files = _search_file_filter
+  find_files = _search_file_filter
+  search = _search_file_filter
 
   def get_file_types(self, *args, **kwargs):
     """Search files using extension
@@ -746,12 +748,10 @@ class FileSystemUtility(LoggingUtility):
     if not _source or not _pattern:
       return _results
 
-    if isinstance(_pattern, str):
+    if isinstance(_pattern, (str)):
       _pattern = [_pattern]
 
-    if not hasattr(self, "PATH"):
-      from pathlib import Path as PATH
-      self.PATH = PATH
+    self._import_module_from('pathlib', 'Path', 'PATH')
 
     for _p in _pattern:
       if "*" not in _p:

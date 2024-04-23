@@ -1,6 +1,7 @@
 from .__metadata__ import __version__, __description__, __build__, __name__
 import importlib as MODULE_IMPORTER
-import os as OperatingSystem
+import os as _OS
+import sys as _SYSTEM
 from functools import lru_cache as CacheMethod
 
 class BaseUtility:
@@ -8,8 +9,13 @@ class BaseUtility:
   __version__= __version__
   __build__= __build__
   __description__= __description__
-  name = "UtilityLib"
-  OS = OperatingSystem
+  name = __name__
+  version = __version__
+  version_info = f"{__version__}.{__build__}"
+
+  OS = _OS
+  SYS = _SYSTEM
+  SYSTEM = _SYSTEM
   os_type = None
   is_windows = None
   is_linux = None
@@ -67,7 +73,6 @@ class BaseUtility:
   set_attributes = _setattrs
   setattrs = _setattrs
 
-  @CacheMethod(maxsize=None)
   def update_attributes(self, obj=None, kw=dict(), defaults=dict()):
     """Sets and updates object attributes from dict
     """
@@ -98,8 +103,55 @@ class BaseUtility:
 
   set_system_type = _set_os_type
 
-  def require_from(self, *args, **kwargs):
-    """@extends require
+  def _import_module_from(self, *args, **kwargs):
+    """Executes "from Package import Module"
+
+    @coverage
+    from PIL import Image as PImage <=> import PIL.Image as PImage
+    from pathlib import Path as PATH <=> import pathlib; PATH = getattr(pathlib, 'Path')
+
+    @params
+    0|package:
+    1|module:
+    2|as:
+    """
+
+    _package = args[0] if len(args) > 0 else kwargs.get("package")
+    _module = args[1] if len(args) > 1 else kwargs.get("module")
+    _as = args[2] if len(args) > 2 else kwargs.get("as")
+
+    _module_instance = None
+
+    if not _package:
+      return None
+
+    try:
+      _pkg = MODULE_IMPORTER.import_module(_package)
+      if hasattr(_pkg, _module):
+        _module_instance = getattr(_pkg, _module)
+      else:
+        _import_stmt = f"{_package}.{_module}" # "import PIL.Image <=> from PIL import Image"
+        _module_instance = MODULE_IMPORTER.import_module(_import_stmt)
+
+    except:
+      ...
+
+    if not _module_instance:
+      return False
+
+    self._imported_modules.append((_as, ))
+    setattr(self, _as, _module_instance)
+    return True
+
+  require_from = _import_module_from
+  module_from = _import_module_from
+  import_from = _import_module_from
+  from_import = _import_module_from
+
+  def require_path(self, *args, **kwargs):
+    """Imports a module through a path by adding the module path to system path
+
+    @extends require
     To import from a given path by adding the path to the system
 
     @params
@@ -112,7 +164,7 @@ class BaseUtility:
     self.require(*args, **kwargs)
     return self
 
-  def require_many(self, *args, **kwargs):
+  def _import_multiple_modules(self, *args, **kwargs):
     """@extends require
     for multiple imports in single call
 
@@ -129,13 +181,16 @@ class BaseUtility:
     for _rm in _modules:
       _res = False
       if len(_rm) > 0 and isinstance(_rm, (tuple, list)):
-        _res = self.require(*_rm, **kwargs)
+        _res = self._import_single_module(*_rm, **kwargs)
       self._enabled_modules.append(_res)
 
     return all(self._enabled_modules)
 
+  import_many = _import_multiple_modules
+  require_many = _import_multiple_modules
+
   @CacheMethod(maxsize=None)
-  def require(self, *args, **kwargs):
+  def _import_single_module(self, *args, **kwargs):
     """"Import module in the run time from the utility.
 
       @usage
@@ -187,3 +242,6 @@ class BaseUtility:
     self._imported_modules.append((_as, ))
     setattr(self, _as, _module_instance)
     return True
+
+  import_module = _import_single_module
+  require = _import_single_module

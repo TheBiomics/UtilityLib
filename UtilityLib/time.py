@@ -7,7 +7,7 @@ class TimeUtility(BaseUtility):
         "duration": 3,
       }
     self.__defaults.update(kwargs)
-    super(TimeUtility, self).__init__(**self.__defaults)
+    super().__init__(**self.__defaults)
     self.time_start()
 
   def time_get(self):

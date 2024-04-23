@@ -57,7 +57,7 @@ class LoggingUtility(DatabaseUtility):
       }
 
     self.__defaults.update(kwargs)
-    super(LoggingUtility, self).__init__(**self.__defaults)
+    super().__init__(**self.__defaults)
     self.set_logging(**self.__defaults)
     self.require_many([("pandas", "PD"), ("textwrap", "TextWrapper")])
 

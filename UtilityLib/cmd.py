@@ -6,8 +6,6 @@ class CommandUtility(DataUtility):
   ProgressBar = TQDMProgressBar
   PB = ProgressBar
   TQDM = ProgressBar
-  MultiProcess = PyMultiProcessing
-  SubProcess = PySubProcess
   def __init__(self, *args, **kwargs):
     self.__defaults = {
         "debug": False,
@@ -16,7 +14,7 @@ class CommandUtility(DataUtility):
         "processes": []
       }
     self.__defaults.update(kwargs)
-    super(CommandUtility, self).__init__(**self.__defaults)
+    super().__init__(**self.__defaults)
 
   def cmd_is_exe(self, program):
     return self.cmd_which(program) is not None

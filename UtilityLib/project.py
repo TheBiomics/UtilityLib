@@ -175,7 +175,7 @@ class ProjectManager(UtilityManager):
   def __init__(self, *args, **kwargs):
     self.__defaults = {"debug": False, "config_key": "config"}
     self.__defaults.update(kwargs)
-    super(ProjectManager, self).__init__(**self.__defaults)
+    super().__init__(**self.__defaults)
     self.set_project_paths()
     self.load_config()
 

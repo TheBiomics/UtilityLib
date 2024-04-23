@@ -1,30 +1,36 @@
-# About UtilityLib
-* Provided ready to use functions to process, read, write, list files and directories and more...
+# UtilityLib
+UtilityLib is a Python package that provides a collection of ready-to-use functions for various file and directory operations, data processing tasks, and more.
 
 # Installation
 
-* Install using source from github using python's pip module
-* Copy the UtilityLib directory in the project
-* `pip install UtilityLib` under any python envrironment
+* You can install UtilityLib via pip or by copying the UtilityLib directory into your project.
+* Using pip: `pip install UtilityLib`
+* Using GitHub: `pip install git+https://github.com/yourusername/UtilityLib.git`
 
-# Examples
+# Usage/Examples
 
+Here are some examples demonstrating the usage of UtilityLib:
+
+## Filename Extraction
 ```python
 
-# 1
+# Method 1
 from UtilityLib import EU
 EU.filename("filepath/filename.ext1.ext2")
 
-# 2
+# Method 2
 from UtilityLib import UtilityManager as UM
 UM().filename("filepath/filename.ext1.ext2")
+```
+## Project Configuration Management
 
-# 3
+```python
+# Method 3
 import UtilityLib as UL
 UL.UM.filename("filepath/filename.ext1.ext2")
 UL.UtilityManager().filename("filepath/filename.ext1.ext2")
 
-# 4
+# Method 4
 from UtilityLib import ProjectManager
 _pm = ProjectManager(
   path_bases=("/mnt/D/DataDrive", "D:/path-windows")
@@ -41,8 +47,7 @@ _pm.update_config(subversion=20221103)
 
 ```
 
-## Quickly compress files to tar.gz (tgz) format and remove the directory
-Later the files can be read directly from the tgz compressed file
+## Compress Files to tar.gz Format
 
 ```python
 _wos_files = EU.search(f"{path_scrapped_queries}/WOS-Downloads", "*.csv")
@@ -50,23 +55,15 @@ EU.add_tgz_files(f"{path_scrapped_queries}/WOS-Downloads.tgz", _wos_files)
 EU.delete_path(f"{path_scrapped_queries}/WOS-Downloads")
 ```
 
-# ToDo
+# Updates/Revisions/Versions
 
-* Create sub-modules to group similar functionalities
-  * Separate commandline processor
-  * Use wxPython to provide GUI interface for file selection, configuration, etc
-* Separate pipeline to import or install modules
-* XML/JSON to DataFrame
-  * `xml_to_df(columns=["key1.key2.key3", "key1.key2.0.1.key3", ...])`
-* Prepare extensive documentation
-* Use python's caching and decorators to speed up the results
+## 2.10
+* Added multi processing
+* Method extension to add/update new method to the existing class object
+* Method caching to speed up
 
----
-
-# Version Updates
-
+## 2.9
 ## 2.8
-
 * Method aliases
 * Setup whl build system
 
@@ -93,11 +90,11 @@ EU.delete_path(f"{path_scrapped_queries}/WOS-Downloads")
 ### 20220914
 * Added single static `update_attributes` method and removed `__update_attr` method from individual class
 
-## 2.57.20220908
+## 2.5.20220908
 * Implemented ready to go import `from UtilityLib import EU`
 * Param changes in EU.combination method
 
-## 2.56.20220905
+## 2.5.20220905
 * Added new methods
 * Major changes (check commit)
   - Removed json parameter from FileSystemUtility.get_file

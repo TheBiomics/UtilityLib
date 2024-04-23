@@ -4,7 +4,7 @@ class UtilityManager(FileSystemUtility):
   def __init__(self, *args, **kwargs):
     self.__defaults = {}
     self.__defaults.update(kwargs)
-    super(UtilityManager, self).__init__(**self.__defaults)
+    super().__init__(**self.__defaults)
 
   def preset(self, *args, **kwargs):
     """Presets of Libraries for Different Purposes
@@ -38,7 +38,7 @@ class UtilityManager(FileSystemUtility):
 
   def add_method(self, *args, **kwargs):
     """Add/overwrite a new method to the class
-    
+
 @params
 0|method_obj: def/method object
 1|cls: class object
@@ -57,9 +57,9 @@ __UL__.add_method(_new_method, CLS)
     _cls = args[1] if len(args) > 1 else kwargs.get("cls", self) # plot
 
     self.require('types', 'TYPES')
-    _obj = self.TYPES.MethodType(method_obj, _cls)
-    setattr(_cls, method_obj.__name__, _obj)
+    _obj = self.TYPES.MethodType(_method_obj, _cls)
+    setattr(_cls, _method_obj.__name__, _obj)
 
-    return hasattr(_cls, method_obj.__name__)
+    return hasattr(_cls, _method_obj.__name__)
 
   set_method = add_method
