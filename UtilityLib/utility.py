@@ -1,4 +1,4 @@
-from .file import FileSystemUtility
+from .core import FileSystemUtility
 
 class UtilityManager(FileSystemUtility):
   def __init__(self, *args, **kwargs):
