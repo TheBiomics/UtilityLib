@@ -1,4 +1,4 @@
-from ..__metadata__ import __version__, __description__, __build__, __name__
+from . import __version__, __description__, __build__, __name__
 import importlib as MODULE_IMPORTER
 import os as _OS
 import sys as _SYSTEM
