@@ -1,6 +1,6 @@
-from .time import TimeUtility
+from .file import FileSystemUtility
 
-class DataUtility(TimeUtility):
+class DataUtility(FileSystemUtility):
   def __init__(self, *args, **kwargs):
     self.__defaults = {}
     self.__defaults.update(kwargs)

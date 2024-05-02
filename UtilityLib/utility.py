@@ -1,6 +1,6 @@
-from .core import FileSystemUtility
+from .core import DataUtility
 
-class UtilityManager(FileSystemUtility):
+class UtilityManager(DataUtility):
   def __init__(self, *args, **kwargs):
     self.__defaults = {}
     self.__defaults.update(kwargs)

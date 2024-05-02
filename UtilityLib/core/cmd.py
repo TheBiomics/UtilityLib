@@ -1,8 +1,8 @@
 from functools import lru_cache as CacheMethod
 from tqdm.auto import tqdm as TQDMProgressBar
-from .data import DataUtility
+from .time import TimeUtility
 
-class CommandUtility(DataUtility):
+class CommandUtility(TimeUtility):
   ProgressBar = TQDMProgressBar
   PB = ProgressBar
   TQDM = ProgressBar
@@ -29,6 +29,8 @@ class CommandUtility(DataUtility):
   def cmd_call(self, *args, **kwargs):
     _command = args[0] if len(args) > 0 else kwargs.get("command")
 
+    self.require('subprocess', 'SubProcess')
+
     if isinstance(_command, str):
       _command = _command.split()
 
@@ -46,6 +48,8 @@ class CommandUtility(DataUtility):
       _command = self.SHELLX.split(_command)
 
     _output = None
+
+    self.require('subprocess', 'SubProcess')
 
     _process = self.SubProcess.Popen(_command, stdout=self.SubProcess.PIPE, universal_newlines=_newlines)
     _output, _error = _process.communicate()

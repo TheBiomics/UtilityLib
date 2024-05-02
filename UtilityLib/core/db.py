@@ -1,22 +1,24 @@
-# import mysql.connector as SQLConnector
 from .cmd import CommandUtility
 
 class DatabaseUtility(CommandUtility):
   def __init__(self, *args, **kwargs):
     self.__defaults = {
         "debug": True,
-        "db_path": "scrapper.db",
+        "db_path": None,
         "engine": None,
         "is_connected": False,
       }
     self.__defaults.update(kwargs)
     super().__init__(**self.__defaults)
 
-  def set_tables(self, *args, **kwargs):
-    from sqlalchemy import MetaData
-    _md = MetaData()
-    _md.reflect(bind=self.engine)
-    self.tables = dict(_md.tables)
+  def set_table_info(self, *args, **kwargs):
+    try:
+      from sqlalchemy import MetaData
+      _md = MetaData()
+      _md.reflect(bind=self.engine)
+      self.tables = dict(_md.tables)
+    except:
+      pass
 
   def connect_mysql(self, *args, **kwargs):
     # My SQL Connection
@@ -33,7 +35,7 @@ class DatabaseUtility(CommandUtility):
     if self.engine is None and self.db_user is not None and self.db_name is not None:
       from sqlalchemy import create_engine
       self.engine = create_engine("mysql+pymysql://" + self.db_user + ":" + self.db_password + "@" + self.db_host + "/" + self.db_name)
-      self.set_tables()
+      self.set_table_info()
     return self.engine
 
   def connect_sqlite(self, *args, **kwargs):
@@ -42,7 +44,7 @@ class DatabaseUtility(CommandUtility):
     if self.is_connected:
       return self.db_path
 
-    if len(self.db_path) > 3:
+    if all([hasattr(self, 'db_path'), getattr(self, 'db_path'), len(self.db_path or "") > 3]):
       from sqlalchemy import create_engine
 
       if self.OS.name == "nt":
@@ -50,7 +52,7 @@ class DatabaseUtility(CommandUtility):
       else:
         self.engine = create_engine(f"sqlite:////{self.db_path}", echo = self.debug)
 
-      self.set_tables()
+      self.set_table_info()
 
       self.is_connected = True
       return self.db_path
@@ -191,7 +193,13 @@ class DatabaseUtility(CommandUtility):
 
     return False
 
-  def query(self, *args, **kwargs):
+  def _query_database(self, *args, **kwargs):
+    """Manual query to database
+
+    @params
+    0|query: sql statement
+    1|query_params: Query parameters
+    """
     self.query_last = args[0] if len(args) > 0 else kwargs.get("query")
     self.query_params = args[1] if len(args) > 1 else kwargs.get("query_params")
 
@@ -200,3 +208,7 @@ class DatabaseUtility(CommandUtility):
       self.query_last_result = _con.execute(SQLText(self.query_last), self.query_params)
 
     return self.query_last_result
+
+  query = _query_database
+  query_db = _query_database
+  query_datbase = _query_database
