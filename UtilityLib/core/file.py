@@ -20,7 +20,18 @@ class FileSystemUtility(LoggingUtility):
     _new_name = args[1] if len(args) > 1 else kwargs.get("to")
     return self.OS.rename(_old_name, _new_name)
 
-  def compress_gz(self, *args, **kwargs):
+  def _compress_dir(self, *args, **kwargs):
+    _path_input_dir = args[0] if len(args) > 0 else kwargs.get("dir")
+    _output_compression = args[0] if len(args) > 0 else kwargs.get("compression", "zip") # tar
+    _path_output_file = args[1] if len(args) > 1 else kwargs.get("file", f"{_path_input_dir}.{_output_compression}")
+    self.require('shutil', 'SHUTIL')
+    return self.SHUTIL.make_archive(_path_output_file, _output_compression, _path_input_dir)
+
+  compress_dir = _compress_dir
+  compress_zip = _compress_dir
+  compress_tar = _compress_dir
+
+  def _compress_file_to_gzip(self, *args, **kwargs):
     """Compress a file to gz
 
     @params
@@ -38,10 +49,11 @@ class FileSystemUtility(LoggingUtility):
       # delete file to simulate moving a file to gz compression
       self.delete_path(self.path_file)
 
-  to_gz = compress_gz
-  gz = compress_gz
-  gzip = compress_gz
-  compress_to_gzip = compress_gz
+  compress_gz = _compress_file_to_gzip
+  to_gz = _compress_file_to_gzip
+  gz = _compress_file_to_gzip
+  gzip = _compress_file_to_gzip
+  compress_to_gzip = _compress_file_to_gzip
 
   def add_tgz_files(self, *args, **kwargs):
     """Adds files to tarball with gz compression
