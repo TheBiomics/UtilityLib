@@ -22,8 +22,8 @@ class FileSystemUtility(LoggingUtility):
 
   def _compress_dir(self, *args, **kwargs):
     _path_input_dir = args[0] if len(args) > 0 else kwargs.get("dir")
-    _output_compression = args[0] if len(args) > 0 else kwargs.get("compression", "zip") # tar
-    _path_output_file = args[1] if len(args) > 1 else kwargs.get("file", f"{_path_input_dir}.{_output_compression}")
+    _output_compression = args[1] if len(args) > 1 else kwargs.get("compression", "zip") # tar
+    _path_output_file = args[2] if len(args) > 2 else kwargs.get("file", f"{_path_input_dir}.{_output_compression}")
     self.require('shutil', 'SHUTIL')
     return self.SHUTIL.make_archive(_path_output_file, _output_compression, _path_input_dir)
 
