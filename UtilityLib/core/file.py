@@ -44,9 +44,13 @@ class FileSystemUtility(LoggingUtility):
   compress_to_gzip = compress_gz
 
   def add_tgz_files(self, *args, **kwargs):
-    """
-      Adds files to tarball with gz compression
+    """Adds files to tarball with gz compression
       Note: Directory architecture is not maintained for now.
+
+      @params
+      0|path_tgz
+      1|files_path
+      2|mode (default: w:gz)
     """
     self.update_attributes(self, kwargs)
     self.path_tgz = args[0] if len(args) > 0 else kwargs.get("path_tgz")
@@ -61,13 +65,30 @@ class FileSystemUtility(LoggingUtility):
 
     if isinstance(_file_paths, (dict)):
       self.require("tarfile", "TarFileManager")
-      _tar = self.TarFileManager.open(self.path_tgz, _mode)
+      if not self.exists(self.path_tgz):
+        _tar = self.TarFileManager.open(self.path_tgz, _mode)
+        _tar.close()
+
+      _tar = self.TarFileManager.open(self.path_tgz, 'r:gz')
+      _tmp_tgz = f"{self.path_tgz}.tmp.tgz"
+
+      _tmp_tarh = self.TarFileManager.open(_tmp_tgz, _mode)
+
+      _tar.extractall()
+      for _mem in _tar.members:
+        _tmp_tarh.add(_mem.path)
+        self.delete_file(_mem.path)
+
       # @TODO Same file name in different path will be overridden
       for _name, _path in _file_paths.items():
         if self.check_path(_path):
-          _tar.add(_path, arcname=_name)
+          _tmp_tarh.add(_path, arcname=_name)
 
+      _tmp_tarh.close()
       _tar.close()
+
+      self.delete_file(self.path_tgz)
+      self.rename(_tmp_tgz, self.path_tgz)
 
   def list_tgz_items(self, *args, **kwargs):
     """

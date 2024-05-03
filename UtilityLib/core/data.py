@@ -142,7 +142,7 @@ class DataUtility(FileSystemUtility):
     Arguments:
       0|excel: Either openpyxl writer or path to excel
       1|df: Pandas DataFrame to be written
-      2|sheet: Name of the sheet
+      2|sheet_name: Name of the sheet
       3|excel_options: Options for PD.to_excel e.g., {'index': False, 'float_format': "%.4f"}
       4|pyxl_options: Options (like engine, mode) for PD.ExcelWriter
 
@@ -158,13 +158,13 @@ class DataUtility(FileSystemUtility):
 
     _excel_writer = args[0] if len(args) > 0 else kwargs.get("excel")
     _df = args[1] if len(args) > 1 else kwargs.get("df")
-    _sheet = args[2] if len(args) > 2 else kwargs.get("sheet", 'DataFrame')
+    _sheet_name = args[2] if len(args) > 2 else kwargs.get("sheet", 'DataFrame') # Will be deprecated
     _excel_options = args[3] if len(args) > 3 else kwargs.get("excel_options", {'index': False})
 
     if isinstance(_excel_writer, (str, )):
       _excel_writer = self.pd_excel_writer(_excel_writer, **kwargs)
 
-    _df.copy().to_excel(_excel_writer, sheet_name=_sheet, **_excel_options)
+    _df.copy().to_excel(_excel_writer, sheet_name=_sheet_name, **_excel_options)
     hasattr(_excel_writer, 'save') and _excel_writer.save()
     _excel_writer.close()
     _excel_writer.handles = None

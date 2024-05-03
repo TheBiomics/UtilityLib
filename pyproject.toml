@@ -23,6 +23,7 @@ dependencies = [
   'seaborn',
   'tqdm',
   'toml',
+  'openpyxl',
 ]
 
 [project.urls]
