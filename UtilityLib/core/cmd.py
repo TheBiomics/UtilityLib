@@ -156,31 +156,35 @@ class CommandUtility(TimeUtility):
     return _params
 
   # Multithreading
-  def init_multiprocessing(self, max_workers=None):
+  max_workers = None
+  thread_executor = None
+  def init_multiprocessing(self):
     self.require('concurrent.futures', 'ConcurrentTasks')
-    self.QueueExecutor = self.ConcurrentTasks.futures.ThreadPoolExecutor(max_workers=max_workers)
+    self.thread_executor = self.ConcurrentTasks.ThreadPoolExecutor(max_workers=self.max_workers)
 
-  @staticmethod
   @CacheMethod(maxsize=None)
-  def _cache_wrapper(func, arg):
-    return func(arg)
+  def _cache_wrapper(self, func, *arg, **kwarg):
+    return func(*arg, **kwarg)
 
-  def map_multiprocess(self, func, tasks):
-    """Perform multithreaded operations
+  future_objects = []
+  def queue_function(self, func, *args, **kwargs):
+    """Queue a function operation
 
 @example:
-def method_to_execute(arg):
+def method_to_execute(self, *arg, **kwargs):
   # Example function to be cached
   return arg ** 2
 
-_tasks = [1, 2, 3, 4, 5]
-
 _cu = CommandUtility()
 _cu.init_multiprocessing()
-_results = _cu.map_multiprocess(method_to_execute, _tasks)
-print(_results)
+_cu.queue_function(method_to_execute, *args, **kwargs)
 
 """
-    with self.QueueExecutor as _exe:
-      _future_results = [_exe.submit(self._cache_wrapper, func, arg) for arg in tasks]
-      return [_future.result() for _future in self.ConcurrentTasks.as_completed(_future_results)]
+    _future = self.thread_executor.submit(func, *args, **kwargs)
+    self.future_objects.append(_future)
+
+  def queue_function_status(self):
+    self.config.jobs.done = sum(1 for _ftr in self.future_objects if _ftr.done())
+    self.config.jobs.pending = sum(1 for _ftr in self.future_objects if not _ftr.done() and not _ftr.running())
+    self.config.jobs.running = sum(1 for _ftr in self.future_objects if not _ftr.done() and _ftr.running())
+    return self.config.jobs

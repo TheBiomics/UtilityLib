@@ -158,7 +158,10 @@ class BaseUtility:
     0|module_path:
     1|module:
     """
-    _module_path = args.pop(0) if len(args) > 0 else kwargs.get("module_path", "")
+    _module_path = args[0] if len(args) > 0 else kwargs.get("module_path", "")
+
+    _args = _args[1:] # tuple.pop(0 error)
+
     self.require("sys", "SYSTEM")
     self.SYSTEM.path.append(_module_path)
     self.require(*args, **kwargs)

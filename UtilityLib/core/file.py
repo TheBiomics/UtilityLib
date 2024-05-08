@@ -21,15 +21,59 @@ class FileSystemUtility(LoggingUtility):
     return self.OS.rename(_old_name, _new_name)
 
   def _compress_dir(self, *args, **kwargs):
-    _path_input_dir = args[0] if len(args) > 0 else kwargs.get("dir")
-    _output_compression = args[1] if len(args) > 1 else kwargs.get("compression", "zip") # tar
-    _path_output_file = args[2] if len(args) > 2 else kwargs.get("file", f"{_path_input_dir}.{_output_compression}")
+    """Archive/compress a directory
+    @params
+    0|source: eg /mnt/data/downloads/xyz-files
+    1|format: eg /mnt/data/downloads/xyz-files(.tar.gz|.zip|.tar) || "zip", "tar", "gztar", "bztar", or "xztar"
+    2|destination: eg /mnt/data/downloads/xyz-files.tgz
+    3|flag_move (False): Deletes the original file
+    """
     self.require('shutil', 'SHUTIL')
-    return self.SHUTIL.make_archive(_path_output_file, _output_compression, _path_input_dir)
+    _source = args[0] if len(args) > 0 else kwargs.get("source")
+    _format = args[1] if len(args) > 1 else kwargs.get("format", "tgz")
+    _destination = args[2] if len(args) > 2 else kwargs.get("destination", f"{_source}.{_format}")
+
+    _format_map = {
+        "tar.gz": 'gztar',
+        "tar.bz": 'bztar',
+        "tar.xz": 'xztar',
+        "tgz": 'gztar',
+        "tbz": 'bztar',
+        "txz": 'xztar',
+        "zip": 'zip',
+        "tar": 'tar',
+    }
+
+    _shutil_format = _format_map.get(_format, 'gztar')
+
+    _base_name = self.file_name(_destination, with_dir=True, num_ext=2)
+    _root_dir = self.file_dir(_source)
+    _base_dir = self.file_name(_source)
+    return self.SHUTIL.make_archive(_base_name, _shutil_format, _root_dir, _base_dir)
 
   compress_dir = _compress_dir
   compress_zip = _compress_dir
-  compress_tar = _compress_dir
+
+  def _compress_to_tgz(self, *args, **kwargs):
+    _format = args[1] if len(args) > 1 else kwargs.get("format", "tgz")
+    kwargs['format'] = 'tgz'
+    if (len(args) > 1):
+      args = list(args)
+      args[1] = _format
+
+    self._compress_dir(*args, **kwargs)
+
+  to_tgz = _compress_to_tgz
+  tgz = _compress_to_tgz
+
+  def zip(self, *args, **kwargs):
+    _format = args[1] if len(args) > 1 else kwargs.get("format", "zip")
+    kwargs['format'] = 'zip'
+    if (len(args) > 1):
+      args = list(args)
+      args[1] = _format
+
+    self._compress_dir(*args, **kwargs)
 
   def _compress_file_to_gzip(self, *args, **kwargs):
     """Compress a file to gz
@@ -55,7 +99,7 @@ class FileSystemUtility(LoggingUtility):
   gzip = _compress_file_to_gzip
   compress_to_gzip = _compress_file_to_gzip
 
-  def add_tgz_files(self, *args, **kwargs):
+  def _add_files_to_tar_gzip(self, *args, **kwargs):
     """Adds files to tarball with gz compression
       Note: Directory architecture is not maintained for now.
 
@@ -64,7 +108,6 @@ class FileSystemUtility(LoggingUtility):
       1|files_path
       2|mode (default: w:gz)
     """
-    self.update_attributes(self, kwargs)
     self.path_tgz = args[0] if len(args) > 0 else kwargs.get("path_tgz")
     _file_paths = args[1] if len(args) > 1 else kwargs.get("files_path", [])
     _mode = args[2] if len(args) > 2 else kwargs.get("mode", "w:gz")
@@ -102,6 +145,8 @@ class FileSystemUtility(LoggingUtility):
       self.delete_file(self.path_tgz)
       self.rename(_tmp_tgz, self.path_tgz)
 
+  add_tgz_files = _add_files_to_tar_gzip
+
   def list_tgz_items(self, *args, **kwargs):
     """
 
@@ -109,7 +154,6 @@ class FileSystemUtility(LoggingUtility):
     Workaround to assign path_tgz at the beginning of every loop.
 
     """
-    self.update_attributes(self, kwargs)
     if not hasattr(self, "path_tgz"):
       self.path_tgz = args[0] if len(args) > 0 else kwargs.get("path_tgz")
 
@@ -183,9 +227,16 @@ class FileSystemUtility(LoggingUtility):
 
     return _result
 
-  def extract_zip(self, *args, **kwargs):
+  def _uncompress_archive(self, *args, **kwargs):
+    """Unpack archive like .zip, .gz, .tar
+
+    @params
+    0|source : eg /mnt/data/drive/downloads/files-1.tar.gz
+    1|destination : /mnt/data/drive/downloads
+
+    """
     _source = args[0] if len(args) > 0 else kwargs.get("source")
-    _destination = args[1] if len(args) > 1 else kwargs.get("destination")
+    _destination = args[1] if len(args) > 1 else kwargs.get("destination", self.file_dir(_source))
 
     self.validate_dir(_destination)
 
@@ -200,8 +251,11 @@ class FileSystemUtility(LoggingUtility):
 
     return self.check_path(_destination)
 
+  extract_zip = _uncompress_archive
+  unzip = _uncompress_archive
+  uncompress = _uncompress_archive
+
   def list_zip_items(self, *args, **kwargs):
-    self.update_attributes(self, kwargs)
     self.path_zip = args[0] if len(args) > 0 else kwargs.get("path_zip", getattr(self, "path_zip"))
 
     _info_type = args[1] if len(args) > 1 else kwargs.get("info_type", "info") # names|info
@@ -255,7 +309,6 @@ class FileSystemUtility(LoggingUtility):
     return self.read_gz_file(*args, **kwargs)
 
   def parse_latex(self, *args, **kwargs):
-    self.update_attributes(self, kwargs)
     _text = args[0] if len(args) > 0 else kwargs.get("text")
     try:
       from pylatexenc.latex2text import LatexNodes2Text
@@ -265,7 +318,6 @@ class FileSystemUtility(LoggingUtility):
     return _text
 
   def parse_html(self, *args, **kwargs):
-    self.update_attributes(self, kwargs)
     _text = args[0] if len(args) > 0 else kwargs.get("text")
 
     from bs4 import BeautifulSoup
@@ -286,7 +338,6 @@ class FileSystemUtility(LoggingUtility):
       None: if some error occurs
       python object after reading the pkl file
     """
-    self.update_attributes(self, kwargs)
     _source = args[0] if len(args) > 0 else kwargs.get("source")
     _default = args[1] if len(args) > 1 else kwargs.get("default", None)
     _flag_compressed = args[2] if len(args) > 2 else kwargs.get("flag_compressed", True)
@@ -307,7 +358,6 @@ class FileSystemUtility(LoggingUtility):
   get_pickle = read_pickle
 
   def read_html(self, *args, **kwargs):
-    self.update_attributes(self, kwargs)
     _source = args[0] if len(args) > 0 else kwargs.get("source")
     _read = self.read_text(_source)
     _file_content = None
@@ -320,7 +370,6 @@ class FileSystemUtility(LoggingUtility):
   from_html = read_html
 
   def read_xml(self, *args, **kwargs):
-    self.update_attributes(self, kwargs)
     _source = args[0] if len(args) > 0 else kwargs.get("source")
     _content = ""
 
@@ -347,7 +396,6 @@ class FileSystemUtility(LoggingUtility):
       * `str.splitlines(keepends=False)`
     """
 
-    self.update_attributes(self, kwargs)
     _file_path = args[0] if len(args) > 0 else kwargs.get("file_path")
     _return_type = args[1] if len(args) > 1 else kwargs.get("return_type", list) # tuple, set
     _callback = args[2] if len(args) > 2 else kwargs.get("callback", self.strip) # "".join
@@ -378,7 +426,6 @@ class FileSystemUtility(LoggingUtility):
   from_text = read_text
 
   def read_json(self, *args, **kwargs):
-    self.update_attributes(self, kwargs)
     _file_path = args[0] if len(args) > 0 else kwargs.get("file_path")
     _res_dict = {}
 
@@ -409,7 +456,6 @@ class FileSystemUtility(LoggingUtility):
       @return
         check_path(destination)
     """
-    self.update_attributes(self, kwargs)
     _destination = args[0] if len(args) > 0 else kwargs.get("destination")
     _content = args[1] if len(args) > 1 else kwargs.get("content", "")
     _append = args[2] if len(args) > 2 else kwargs.get("append", False)
@@ -465,7 +511,6 @@ class FileSystemUtility(LoggingUtility):
         File extension pkl.gz used against df.gz|pd.gz pickled files
     """
 
-    self.update_attributes(self, kwargs)
     if self.require('cPickle', "PICKLE", "pickle") and self.require("gzip", "GZip"):
       _destination = args[0] if len(args) > 0 else kwargs.get("destination")
       _content = args[1] if len(args) > 1 else kwargs.get("content")
@@ -489,7 +534,6 @@ class FileSystemUtility(LoggingUtility):
       @returns
       True|False if file path exists
     """
-    self.update_attributes(self, kwargs)
     _destination = args[0] if len(args) > 0 else kwargs.get("destination")
     _content = args[1] if len(args) > 1 else kwargs.get("content", dict())
     if isinstance(_content, (dict)):
@@ -506,7 +550,6 @@ class FileSystemUtility(LoggingUtility):
       @returns
       True|False if file path exists
     """
-    self.update_attributes(self, kwargs)
     _destination = args[0] if len(args) > 0 else kwargs.get("destination")
     _content = args[1] if len(args) > 1 else kwargs.get("content")
     self.write(_destination, _content, **kwargs)
@@ -520,7 +563,6 @@ class FileSystemUtility(LoggingUtility):
       @returns
       dict of the converted xml
     """
-    self.update_attributes(self, kwargs)
     _data = args[0] if len(args) > 0 else kwargs.get("data")
     _res = {}
 
@@ -730,7 +772,6 @@ class FileSystemUtility(LoggingUtility):
     """Search directories using pattern
 
     """
-    self.update_attributes(self, kwargs)
     _source = args[0] if len(args) > 0 else kwargs.get("dir", getattr(self, "dir"))
     _pattern = args[1] if len(args) > 1 else kwargs.get("pattern", "/*/")
     return self._search_path_pattern(_source, _pattern)
@@ -773,7 +814,6 @@ class FileSystemUtility(LoggingUtility):
     """Internal Function to Search Paths based on pattern
 
     """
-    self.update_attributes(self, kwargs)
     _results = []
     _source = args[0] if len(args) > 0 else kwargs.get("source", getattr(self, "source"))
     _pattern = args[1] if len(args) > 1 else kwargs.get("pattern", "*")
@@ -794,7 +834,6 @@ class FileSystemUtility(LoggingUtility):
     return _results
 
   def create_dir(self, *args, **kwargs):
-    self.update_attributes(self, kwargs)
     _dir_paths = args[0] if len(args) > 0 else kwargs.get("dirs")
 
     if isinstance(_dir_paths, str):
@@ -835,7 +874,6 @@ class FileSystemUtility(LoggingUtility):
       @return boolean
       True|False
     """
-    self.update_attributes(self, kwargs)
     _path = args[0] if len(args) > 0 else kwargs.get("path")
     _result = False
 
@@ -865,7 +903,6 @@ class FileSystemUtility(LoggingUtility):
       return self.validate_dir(_sub)
 
   def validate_dir(self, *args, **kwargs):
-    self.update_attributes(self, kwargs)
     _dir = args[0] if len(args) > 0 else kwargs.get("dir")
     if not self.check_path(_dir):
       _res = self.create_dir(_dir, **kwargs)
@@ -874,6 +911,8 @@ class FileSystemUtility(LoggingUtility):
       else:
         self.log_info(f"Failed to create directory {_dir}.")
     return _dir
+
+  validate_path = validate_dir
 
   def change_ext(self, *args, **kwargs):
     _fp = args[0] if len(args) > 0 else kwargs.get("path")
