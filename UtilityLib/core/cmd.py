@@ -158,16 +158,38 @@ class CommandUtility(TimeUtility):
   # Multithreading
   max_workers = None
   thread_executor = None
+  semaphore = None
+  task_queue = None
+  future_objects = []
+
+  def _get_max_workers(self):
+    # Get the number of CPU cores available
+    _num_cores = self.OS.cpu_count()
+    # Adjust max_workers based on available CPU cores and workload
+    self.max_workers = min(2 * _num_cores, 32)  # Example: Limit to 2x CPU cores or 32 workers, whichever is lower
+    return self.max_workers
+
   def init_multiprocessing(self):
     self.require('concurrent.futures', 'ConcurrentTasks')
+    self.require('threading', 'Threading')
+    self.require('queue', 'QueueProvider')
+    self._get_max_workers()
+    self.task_queue = self.QueueProvider.Queue()
+    self.semaphore = self.Threading.Semaphore(self.max_workers)
     self.thread_executor = self.ConcurrentTasks.ThreadPoolExecutor(max_workers=self.max_workers)
+
+  def __enter__(self):
+    self.init_multiprocessing()
+    return self
+
+  def __exit__(self, *args, **kwargs):
+    self.thread_executor.shutdown()
 
   @CacheMethod(maxsize=None)
   def _cache_wrapper(self, func, *arg, **kwarg):
     return func(*arg, **kwarg)
 
-  future_objects = []
-  def queue_function(self, func, *args, **kwargs):
+  def queue_task(self, func, *args, **kwargs):
     """Queue a function operation
 
 @example:
@@ -177,13 +199,36 @@ def method_to_execute(self, *arg, **kwargs):
 
 _cu = CommandUtility()
 _cu.init_multiprocessing()
-_cu.queue_function(method_to_execute, *args, **kwargs)
+_cu.queue_task(method_to_execute, *args, **kwargs)
 
 """
-    _future = self.thread_executor.submit(func, *args, **kwargs)
-    self.future_objects.append(_future)
+    self.task_queue.put((func, args, kwargs))
 
-  def queue_function_status(self):
+  def process_queue(self, wait=False):
+    # Process tasks from the queue
+    while not self.task_queue.empty():
+      # Acquire semaphore to limit concurrency
+      try:
+        with self.semaphore:
+          # Get task from the queue
+          _func, _args, _kwargs = self.task_queue.get()
+          # Submit task to the executor
+          _ftr_obj = self.thread_executor.submit(_func, *_args, **_kwargs)
+          self.future_objects.append(_ftr_obj)
+      except Exception as e:
+        # Handle exceptions raised during file operation
+        print(f"Error processing the queue: {e}")
+
+    if wait:
+      self._wait_for_completion()
+
+  def _wait_for_completion(self):
+    # Wait for all tasks to complete
+    self.ConcurrentTasks.wait(self.future_objects)
+    # Shutdown the ThreadPoolExecutor
+    self.thread_executor.shutdown(wait=True)
+
+  def queue_task_status(self):
     self.config.jobs.done = sum(1 for _ftr in self.future_objects if _ftr.done())
     self.config.jobs.pending = sum(1 for _ftr in self.future_objects if not _ftr.done() and not _ftr.running())
     self.config.jobs.running = sum(1 for _ftr in self.future_objects if not _ftr.done() and _ftr.running())
