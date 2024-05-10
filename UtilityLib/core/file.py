@@ -738,7 +738,7 @@ class FileSystemUtility(LoggingUtility):
     if isinstance(_file_path, (list, tuple, set)):
       for _fp in _file_path:
         if self.exists(_fp):
-          _sizes.append(_fp, *self.convert_bytes(self.OS.path.getsize(_fp)))
+          _sizes.append((_fp, *self.convert_bytes(self.OS.path.getsize(_fp))))
 
     return _sizes[0] if _flag_is_single else _sizes
 
