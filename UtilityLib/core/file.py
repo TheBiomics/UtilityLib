@@ -703,6 +703,40 @@ class FileSystemUtility(LoggingUtility):
 
     return self.check_path(_destination)
 
+
+  def convert_bytes(self, *args, **kwargs):
+    """Converts bytes to KB, MB, GB... etc
+
+    @params
+    0|_bytes : float
+    """
+    _bytes = args[0] if len(args) > 0 else kwargs.get('bytes', 0)
+    _bytes = float(_bytes)
+
+    for _unit in ['bytes', 'KB', 'MB', 'GB', 'TB']:
+      if _bytes < 1024.0:
+        return (_bytes, _unit)
+      _bytes /= 1024.0
+
+  def get_file_size(self, *args, **kwargs):
+    """Returns file size(s)
+
+    @params
+    0|file_path : string or iterable
+    """
+    _file_path = args[0] if len(args) > 0 else kwargs.get('file_path', [])
+
+    _sizes = {}
+    if isinstance(_file_path, (str)):
+      _file_path = [_file_path]
+
+    if isinstance(_file_path, (list, tuple, set)):
+      for _fp in _file_path:
+        if self.exists(_fp):
+          _sizes[_fp] = self.convert_bytes(self.OS.path.getsize(_fp))
+
+    return _sizes
+
   def get_file(self, *args, **kwargs):
     """
       @function

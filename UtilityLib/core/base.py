@@ -160,12 +160,14 @@ class BaseUtility:
     """
     _module_path = args[0] if len(args) > 0 else kwargs.get("module_path", "")
 
-    _args = _args[1:] # tuple.pop(0 error)
+    args = args[1:] # tuple.pop(0 error)
 
     self.require("sys", "SYSTEM")
     self.SYSTEM.path.append(_module_path)
     self.require(*args, **kwargs)
     return self
+
+  import_path = require_path
 
   def _import_multiple_modules(self, *args, **kwargs):
     """@extends require
