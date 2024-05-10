@@ -723,19 +723,24 @@ class FileSystemUtility(LoggingUtility):
 
     @params
     0|file_path : string or iterable
+
+    @returns
+    _file_size, _size_unit
     """
     _file_path = args[0] if len(args) > 0 else kwargs.get('file_path', [])
 
-    _sizes = {}
+    _sizes = []
+    _flag_is_single = False
     if isinstance(_file_path, (str)):
+      _flag_is_single = True
       _file_path = [_file_path]
 
     if isinstance(_file_path, (list, tuple, set)):
       for _fp in _file_path:
         if self.exists(_fp):
-          _sizes[_fp] = self.convert_bytes(self.OS.path.getsize(_fp))
+          _sizes.append(_fp, *self.convert_bytes(self.OS.path.getsize(_fp)))
 
-    return _sizes
+    return _sizes[0] if _flag_is_single else _sizes
 
   def get_file(self, *args, **kwargs):
     """
