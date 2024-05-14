@@ -972,6 +972,11 @@ class FileSystemUtility(LoggingUtility):
 
     return ".".join((_f_wo_ext, _to))
 
+  def get_open_file_descriptors(self, *args, **kwargs):
+    self.require('psutil', 'PC')
+    self.processes = self.PC.Process()
+    return self.processes.num_fds()
+
   def file_dir(self, *args, **kwargs):
     """Returns parent directory path from the filepath
     """

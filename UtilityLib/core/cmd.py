@@ -233,3 +233,8 @@ _cu.queue_task(method_to_execute, *args, **kwargs)
     self.config.jobs.pending = sum(1 for _ftr in self.future_objects if not _ftr.done() and not _ftr.running())
     self.config.jobs.running = sum(1 for _ftr in self.future_objects if not _ftr.done() and _ftr.running())
     return self.config.jobs
+
+  def sys_open_files(self):
+    import psutil as PC
+    _p = PC.Process()
+    return _p.open_files()
