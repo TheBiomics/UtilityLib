@@ -1,5 +1,5 @@
 from .utility import UtilityManager
-from .lib.obj import ObjDict
+from . import ObjDict
 
 class ProjectManager(UtilityManager):
   name = "project"

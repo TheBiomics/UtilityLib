@@ -1,7 +1,7 @@
 from warnings import warn as WARN
-from .log import LoggingUtility
+from .db import DatabaseUtility
 
-class FileSystemUtility(LoggingUtility):
+class FileSystemUtility(DatabaseUtility):
   def __init__(self, *args, **kwargs):
     self.__defaults = {}
     self.__defaults.update(kwargs)

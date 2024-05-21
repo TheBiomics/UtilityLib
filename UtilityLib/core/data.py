@@ -6,6 +6,57 @@ class DataUtility(FileSystemUtility):
     self.__defaults.update(kwargs)
     super().__init__(**self.__defaults)
 
+  # Type of variable (validate)
+  def check_instance(self, *args, **kwargs):
+    _var = kwargs.get("var", args[0] if len(args) > 0 else None)
+    _instances = kwargs.get("instances", args[1] if len(args) > 1 else self.type_numbers)
+    return isinstance(_var, _instances)
+
+  type_numbers = (int, float, complex)
+  def is_numeric(self, *args, **kwargs):
+    """Checks if variable is numeric, int, float, or complex"""
+    return self.check_instance(*args, **kwargs.update({"instances": self.type_numbers}))
+
+  type_integers = (int)
+  def is_int(self, *args, **kwargs):
+    """Checks if variable is integer not float, string or other types"""
+    return self.check_instance(*args, **kwargs.update({"instances": self.type_integers}))
+
+  is_digit = is_int
+
+  type_arrays = (list, set, tuple)
+  def is_array(self, *args, **kwargs):
+    """Check if list, tuple, set, or numpy array"""
+    return self.check_instance(*args, **kwargs.update({"instances": self.type_arrays}))
+
+  is_list = is_array
+  is_set = is_array
+  is_tuple = is_array
+
+  type_non_arrays = (int, float, complex, str, bool)
+  def is_singular(self, *args, **kwargs):
+    """Checks if not iterable or string, int, or float"""
+    return self.check_instance(*args, **kwargs.update({"instances": self.type_non_arrays}))
+
+  is_non_iterable = is_singular
+
+  type_maps = (dict)
+  def is_map(self, *args, **kwargs):
+    """Checks if dict, named tuple, or dataframe"""
+    return self.check_instance(*args, **kwargs.update({"instances": self.type_maps}))
+
+  is_dict = is_map
+
+  def is_named_tuple(self, *args, **kwargs):
+    """Checks for named tuple (collections namedtuple)"""
+    _var = kwargs.get("var", args[0] if len(args) > 0 else None)
+    return isinstance(_var, (tuple)) and hasattr(_var, '_fields')
+
+  type_bools =  (bool)
+  def is_bool(self, *args, **kwargs):
+    """Checks if variable is a boolean"""
+    return self.check_instance(*args, **kwargs.update({"instances": self.type_bools}))
+
   # DataFrame Functions
   ## Pandas
   def df_reset_columns(self, *args, **kwargs):
@@ -23,7 +74,7 @@ class DataUtility(FileSystemUtility):
     _df = args[0] if len(args) > 0 else kwargs.get("df")
     _key = args[1] if len(args) > 1 else kwargs.get("key")
 
-    _joined_cols = ["__".join(_idx) for _idx in _df.columns if isinstance(_idx, tuple)]
+    _joined_cols = ["__".join(_idx) for _idx in _df.columns.ravel()]
     _df.columns = _joined_cols if len(_joined_cols) == len(_df.columns) else _df.columns
     if _key and (not _key in _df.columns) and (not 'index' in _df.columns):
         _df = _df.reset_index()
@@ -41,22 +92,26 @@ class DataUtility(FileSystemUtility):
     """
     _json = args[0] if len(args) > 0 else kwargs.get("json")
     _map = args[1] if len(args) > 1 else kwargs.get("map", None)
+    _sep = args[2] if len(args) > 2 else kwargs.get("sep", '.')
+
+    if not hasattr(kwargs, 'sep'):
+      kwargs.update({"sep": _sep})
 
     if isinstance(_json, (str)):
       _json = self.read_json(_json)
 
     _result = []
+
     for _json_el in _json:
       _row = {}
       if _map and isinstance(_map, (dict)):
         # If column map is provided
-        for _key, _dotkey in _map.items():
-          _row[_key] = self.get_deep_key(_json_el, _dotkey)
+        for _column, _dotkey in _map.items():
+          _row[_column] = self.get_deep_key(_json_el, _dotkey, **kwargs)
       else:
         # If column map is not provided
-        for _key, _value in _json.items():
-          _row[_key] = _value
-
+        for _column, _value in _json.items():
+          _row[_column] = _value
       _result.append(_row)
 
     return self.DF(_result)
@@ -64,37 +119,37 @@ class DataUtility(FileSystemUtility):
   json_to_df = _json_file_to_df
 
   def pd_categorical(self, df, col_name, sort=True):
-      """
-      Arguments:
-        0|df: pandas DataFrame
-        1|col_name: Column Name
-        2|sort: boolean
+    """
+    Arguments:
+      0|df: pandas DataFrame
+      1|col_name: Column Name
+      2|sort: boolean
 
-      Returns:
-        (categorical_df, mapping)
+    Returns:
+      (categorical_df, mapping)
 
-      Example:
-        _df_cat, _mapping = _PM.pd_categorical(df, 'gender', True)
+    Example:
+      _df_cat, _mapping = _PM.pd_categorical(df, 'gender', True)
 
-      """
-      df_copy = df.copy()
-      if sort:
-          df_copy = df_copy.sort_values(col_name)
+    """
+    df_copy = df.copy()
+    if sort:
+      df_copy = df_copy.sort_values(col_name)
 
-      column_mapping = {}
-      if not df_copy[col_name].dtype.name == 'category':
-          df_copy[col_name] = df_copy[col_name].astype('category')
-          column_mapping = dict(zip( df_copy[col_name].cat.codes, df_copy[col_name]))
-          column_mapping_inverse = zip(column_mapping.values(), column_mapping.keys())
-          column_mapping_inverse = dict(column_mapping_inverse)
-          df_copy[col_name] = df_copy[col_name].map(column_mapping_inverse)
+    column_mapping = {}
+    if not df_copy[col_name].dtype.name == 'category':
+      df_copy[col_name] = df_copy[col_name].astype('category')
+      column_mapping = dict(zip( df_copy[col_name].cat.codes, df_copy[col_name]))
+      column_mapping_inverse = zip(column_mapping.values(), column_mapping.keys())
+      column_mapping_inverse = dict(column_mapping_inverse)
+      df_copy[col_name] = df_copy[col_name].map(column_mapping_inverse)
 
-      column_mapping_df = self.DF({
-              'key': column_mapping.keys(),
-              'values': column_mapping.values(),
-          })
+    column_mapping_df = self.DF({
+            'key': column_mapping.keys(),
+            'values': column_mapping.values(),
+        })
 
-      return (df_copy, column_mapping_df)
+    return (df_copy, column_mapping_df)
 
   def pd_excel_writer(self, *args, **kwargs):
     _excel = args[0] if len(args) > 0 else kwargs.get("excel")
@@ -136,6 +191,11 @@ class DataUtility(FileSystemUtility):
     _excel = self.PD.read_excel(_excel, **kwargs)
 
     return _excel
+
+  def fix_column_names(self, *args, **kwargs):
+    _df = args[0] if len(args) > 0 else kwargs.get("df")
+    _df.columns = [self.text_to_slug(_col).replace('-', '_') for _col in _df.columns]
+    return _df
 
   def pd_excel(self, *args, **kwargs):
     """
@@ -285,8 +345,7 @@ class DataUtility(FileSystemUtility):
     return _data
 
   def find_all(self, *args, **kwargs):
-    """
-    Finds all substrings in a given string
+    """Finds all substrings in a given string
     """
     # Pop first element to extend re_compile method
     _string = args[0] if len(args) > 0 else kwargs.get("string", "")
@@ -298,8 +357,7 @@ class DataUtility(FileSystemUtility):
     return None
 
   def slice(self, *args, **kwargs):
-    """
-    @function (similar to chunks)
+    """@function (similar to chunks)
     generator method to yield list values in chunks
 
     @arguments
@@ -313,8 +371,7 @@ class DataUtility(FileSystemUtility):
     return islice(_obj, *args[1:])
 
   def chunks(self, *args, **kwargs):
-    """
-    @function
+    """@function
     generator method to yield list values in chunks
 
     @arguments
@@ -445,7 +502,6 @@ class DataUtility(FileSystemUtility):
     _result = max(_results, key=len) if len(_results) > 0 else ""
     return _result
 
-
   def get_deep_key(self, *args, **kwargs):
     """Get method to access nested key
 
@@ -460,6 +516,8 @@ class DataUtility(FileSystemUtility):
 
       @return
       matched key value or default
+
+      @updated 20240517: numbers as string
     """
     _obj = args[0] if len(args) > 0 else kwargs.get("obj", {})
     _keys = args[1] if len(args) > 1 else kwargs.get("keys", ())
@@ -474,9 +532,11 @@ class DataUtility(FileSystemUtility):
 
     for _k in _keys:
       # hasattr(, 'get') & str|int=> _dict key, int => list, tuple, or set
-      if isinstance(_obj, _instance_dict) and hasattr(_obj, 'get') and isinstance(_k, _instance_singluar):
+      if "*" in _k:
+        _obj = list(_obj)
+      elif isinstance(_obj, _instance_dict) and isinstance(_k, _instance_singluar):
         _obj = _obj.get(_k, _default)
-      elif(isinstance(_obj, _instance_list) and (isinstance(_k, (int)) or _k.isnumeric())):
+      elif(isinstance(_obj, _instance_list) and (isinstance(_k, _instance_singluar) or _k.isnumeric())):
         _k = int(_k)
         if len(_obj) > _k:
           _obj = _obj[_k]

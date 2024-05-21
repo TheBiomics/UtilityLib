@@ -1,132 +1,134 @@
-from .db import DatabaseUtility
+from .time import TimeUtility
+import logging as _Logging
 
-class LoggingUtility(DatabaseUtility):
-  _terminal_bg_colors = {
-      "black": 40,
-      "red": 41,
-      "green": 42,
-      "yellow": 43,
-      "blue": 44,
-      "magenta": 45,
-      "cyan": 46,
-      "white": 47,
-    }
+class _ColoredFormatter(_Logging.Formatter):
+  BLACK = '\x1b[30m'
+  BLUE = '\x1b[34m'
+  CYAN = '\x1b[36m'
+  GREEN = '\x1b[32m'
+  MAGENTA = '\x1b[35m'
+  RED = '\x1b[31m'
+  RESET = '\x1b[39m'
+  WHITE = '\x1b[37m'
+  YELLOW = '\x1b[33m'
+  RESET_ALL = '\x1b[0m'
+  INVERT_START = '\033[7m'
+  INVERT_END = '\033[27m'
 
-  _terminal_fg_colors = {
-      "black": 30,
-      "red": 31,
-      "green": 32,
-      "yellow": 33,
-      "blue": 34,
-      "magenta": 35,
-      "cyan": 36,
-      "white": 37,
-    }
+  COLORS = {
+    'DEBUG': 'YELLOW',
+    'INFO': 'WHITE',
+    'WARNING': 'YELLOW',
+    'ERROR': 'RED',
+    'CRITICAL': 'MAGENTA',
+  }
 
-  _terminal_text_styles = {
-      "regular": 0,
-      "bold": 1,
-      "low_intensity": 2,
-      "italic": 3,
-      "underline": 4,
-      "blink": 5,
-      "reverse": 6,
-      "background": 7,
-      "invisible": 8,
-    }
+  def format(self, record):
+    _log_color = getattr(self, self.COLORS.get(record.levelname, 'WHITE'), self.WHITE)
+    _log_msg = super().format(record)
+    _format = f"{_log_color}{_log_msg}{self.RESET_ALL}"
+    _invert_format = f"{self.INVERT_START}{_log_color}{_log_msg}{self.RESET_ALL}{self.INVERT_END}"
+    return _format
 
-  print_log = True
-  step_log = False
-  step_pause = False
+class LoggingUtility(TimeUtility):
+  log_type = "info"
+  log_file = "UtilityLib.log"
 
   def __init__(self, *args, **kwargs):
     self.__defaults = {
-        "log_type": "info",
         "last_message": None,
-        "log_file_path": ".",
-        "log_file_name": "app-process.log",
-        "log_table_name": "db_watchdog",
-        "log_status": {
-            "success": LoggingUtility._highlight_terminal_text("[SUCCESS]", "black", 'green'),
-            "info": LoggingUtility._highlight_terminal_text("[INFO]", "black", 'cyan'),
-            "debug": LoggingUtility._highlight_terminal_text("[DEBUG]", "black", 'magenta', text_style="italic"),
-            "warning": LoggingUtility._highlight_terminal_text("[WARNING]", "black", 'yellow'),
-            "fail": LoggingUtility._highlight_terminal_text("[FAIL]", "black", 'red', text_style="blink"),
-            "error": LoggingUtility._highlight_terminal_text("[ERROR]", "black", 'red'),
-          },
+        "log_table_name": "ul_watchdog",
       }
 
     self.__defaults.update(kwargs)
     super().__init__(**self.__defaults)
     self.set_logging(**self.__defaults)
-    self.require_many([("pandas", "PD"), ("textwrap", "TextWrapper")])
+    # self._set_file_log_handler()
 
-  @staticmethod
-  def _highlight_terminal_text(text, bg_color="blue", fg_color="white", text_style="regular", placeholder_size=11):
-    bg_color_code = LoggingUtility._terminal_bg_colors.get(bg_color, 4)
-    fg_color_code = LoggingUtility._terminal_fg_colors.get(fg_color, 37)
-    text_style_code = LoggingUtility._terminal_text_styles.get(text_style, 0)
-    placeholder_size_fs = f">{placeholder_size}"
+  LogHandler = None
+  log_level = 'DEBUG'
 
-    if False:
-      return f"\033[0m\033[0;{fg_color_code}m\033[{text_style_code};{bg_color_code}m{text:>10}\033[0m"
+  def _set_console_log_handler(self, *args, **kwargs):
+    """Set Console Log Handler"""
+    _log_level = _Logging.INFO
+    if isinstance(self.log_level, (str)):
+      self.log_level = self.log_level.upper()
+      _log_level = getattr(_Logging, self.log_level, _log_level)
+    elif isinstance(self.log_level, (int)):
+      _log_level = self.log_level
 
-    return f"\033[{text_style_code};{fg_color_code}m{text:>10}\033[0m"
+    _ch = _Logging.StreamHandler()
+    _ch.setLevel(_log_level)
+    _fmt = _ColoredFormatter('[%(asctime)s] [%(name)s] [%(levelname)s] %(message)s')
+    _ch.setFormatter(_fmt)
+
+    self.LogHandler.addHandler(_ch)
+
+  def _set_file_log_handler(self, *args, **kwargs):
+    """Set File Log Handler and Log Everything"""
+
+    if not self.path_base is None:
+      _log_file_path = self.get_path(self.log_file)
+      _fh = _Logging.FileHandler(_log_file_path)
+      _fh.setLevel(_Logging.DEBUG)
+
+      _fmt = _Logging.Formatter('|%(asctime)s\t|%(name)s\t|%(levelname)s\t|%(message)s')
+      _fh.setFormatter(_fmt)
+      self.LogHandler.addHandler(_fh)
+
+  def set_logging(self, *args, **kwargs):
+    """Logging Setup"""
+    self.LogHandler = _Logging.getLogger(self.name)
+    self.LogHandler.setLevel(_Logging.DEBUG)
+
+    if self.LogHandler.hasHandlers:
+      for _h in list(self.LogHandler.handlers):
+        self.LogHandler.removeHandler(_h)
+
+    self._set_console_log_handler()
+    self._set_file_log_handler()
 
   def __log(self, *args, **kwargs):
-    self.update_attributes(self, kwargs)
-    _wrap_message = kwargs.get("log_wrap", True)
-    _db_log = []
-    _log_type = kwargs.get('log_type', self.log_type)
+    _log_type = kwargs.pop('log_type', args[1] if len(args) > 1 else self.log_type)
+    _message = kwargs.pop('text', args[0] if len(args) > 0 else "EMPTY MESSAGE")
 
-    for _message in args:
-      if self.print_log == True:
-        _print_msg = f"{self.log_status[_log_type]} [{self.time_elapsed()}] {str(_message)}"
-        if _wrap_message:
-          _print_msg = self.TextWrapper.fill(_print_msg, width=80, subsequent_indent=" "*11)
+    if self.LogHandler is None:
+      self.set_logging()
 
-        _log = getattr(self.LOGGER, _log_type, 'info')
-        _log(_print_msg)
-
-      _db_log.append({
-        "type": _log_type,
-        "message": str(_message),
-        "time": self.time_get()
-      })
-
-    _db_log_df = self.DF(_db_log)
-
-    if getattr(self, 'engine'):
-      _db_log_df.to_sql(self.log_table_name, self.engine, if_exists='append', index=False)
+    _lh = getattr(self.LogHandler, _log_type)
+    if _lh:
+      _lh(_message)
     else:
-      _log_file = f"{self.log_file_path.strip('/')}/{self.log_file_name}"
-      if self.exists(_log_file):
-        _db_log_df.to_csv(_log_file, mode='a', header=False)
-
-    if getattr(self, 'step_pause', False):
-      input("Step pause enabled. Press enter to continue...")
-      self.update_attributes(self, {"step": False})
-
-  def log_info(self, *args, **kwargs):
-    kwargs.update({"log_type": "info"})
-    return self.__log(*args, **kwargs)
+      print(_message)
 
   def log_debug(self, *args, **kwargs):
     kwargs.update({"log_type": "debug"})
     return self.__log(*args, **kwargs)
 
+  debug = log_debug
+
+  def log_info(self, *args, **kwargs):
+    kwargs.update({"log_type": "info"})
+    return self.__log(*args, **kwargs)
+
+  info = log_info
+  log_success = log_info
+
   def log_warning(self, *args, **kwargs):
     kwargs.update({"log_type": "warning"})
     return self.__log(*args, **kwargs)
+
+  warning = log_warning
 
   def log_error(self, *args, **kwargs):
     kwargs.update({"log_type": "error"})
     return self.__log(*args, **kwargs)
 
-  def log_success(self, *args, **kwargs):
-    kwargs.update({"log_type": "success"})
+  error = log_error
+
+  def log_critical(self, *args, **kwargs):
+    kwargs.update({"log_type": "critical"})
     return self.__log(*args, **kwargs)
 
-  def log_fail(self, *args, **kwargs):
-    kwargs.update({"log_type": "fail"})
-    return self.__log(*args, **kwargs)
+  log_fail = log_critical
+  emergency = log_critical

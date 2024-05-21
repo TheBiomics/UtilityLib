@@ -1,17 +1,15 @@
 from functools import lru_cache as CacheMethod
 from tqdm.auto import tqdm as TQDMProgressBar
-from .time import TimeUtility
+from .log import LoggingUtility
 
-class CommandUtility(TimeUtility):
+class CommandUtility(LoggingUtility):
   ProgressBar = TQDMProgressBar
   PB = ProgressBar
   TQDM = ProgressBar
+
   def __init__(self, *args, **kwargs):
     self.__defaults = {
         "debug": False,
-        "config": [],
-        "cpu_count": None,
-        "processes": []
       }
     self.__defaults.update(kwargs)
     super().__init__(**self.__defaults)
@@ -229,6 +227,7 @@ _cu.queue_task(method_to_execute, *args, **kwargs)
     self.thread_executor.shutdown(wait=True)
 
   def queue_task_status(self):
+    # ToDo: ObjDict::config
     self.config.jobs.done = sum(1 for _ftr in self.future_objects if _ftr.done())
     self.config.jobs.pending = sum(1 for _ftr in self.future_objects if not _ftr.done() and not _ftr.running())
     self.config.jobs.running = sum(1 for _ftr in self.future_objects if not _ftr.done() and _ftr.running())

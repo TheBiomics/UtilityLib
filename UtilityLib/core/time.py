@@ -8,7 +8,6 @@ class TimeUtility(BaseUtility):
       }
     self.__defaults.update(kwargs)
     super().__init__(**self.__defaults)
-    self.time_start()
 
   def time_get(self):
     self.require("time", "TIME")

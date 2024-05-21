@@ -21,6 +21,8 @@ class BaseUtility:
   is_linux = None
   path_base = None
 
+  _messages_to_log = [] # [{type:..., text:..., time:...}]
+
   _imported_modules = []
 
   def __init__(self, *args, **kwargs):
@@ -56,18 +58,8 @@ class BaseUtility:
 
     return False
 
-  def set_logging(self, *args, **kwargs):
-    import logging
-    import warnings
-    self.LOGGER = logging.getLogger(self.name + "Logs")
-    logging.captureWarnings(True)
-    self.WARNINGS = warnings
-    self.LOGGER.setLevel(logging.INFO)
-    self.LOGGER_WARNING = logging.getLogger('py.warnings')
-
   def _setattrs(self, kw):
     """set multiple attributes from dict"""
-
     [setattr(self, _k, kw[_k]) for _k in kw.keys()]
 
   set_attributes = _setattrs
@@ -162,7 +154,6 @@ class BaseUtility:
 
     args = args[1:] # tuple.pop(0 error)
 
-    self.require("sys", "SYSTEM")
     self.SYSTEM.path.append(_module_path)
     self.require(*args, **kwargs)
     return self
@@ -222,23 +213,20 @@ class BaseUtility:
 
     _module_instance = None
 
-    self.set_logging()
-
     try:
       __i = MODULE_IMPORTER.import_module(_module)
-      # self.log_info(f"Imported {_module}")
+      self.log_debug(f"Imported {_module}")
       _module_instance = __i
     except:
-      # self.log_error(f"`{_module} as {_as}` could not be imported.")
+      self.log_error(f"`{_module} as {_as}` could not be imported.")
       try:
         if _alternate and isinstance(_alternate, (str)):
-          # self.log_warning(f"{_module} could not be imported. Trying to import {_alternate}.")
+          self.log_warning(f"{_module} could not be imported. Trying to import {_alternate}.")
           __i = MODULE_IMPORTER.import_module(_alternate)
           _module_instance = __i
       except:
         _error_message = f"{_module} as {_as} or its alternate {_alternate} could not be imported."
-        print(_error_message)
-        # self.log_error(_error_message)
+        self.log_error(_error_message)
 
     if _module_instance is None:
       return False
