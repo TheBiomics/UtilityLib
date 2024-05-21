@@ -8,9 +8,7 @@ class CommandUtility(LoggingUtility):
   TQDM = ProgressBar
 
   def __init__(self, *args, **kwargs):
-    self.__defaults = {
-        "debug": False,
-      }
+    self.__defaults = {}
     self.__defaults.update(kwargs)
     super().__init__(**self.__defaults)
 

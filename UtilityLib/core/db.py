@@ -3,7 +3,6 @@ from .cmd import CommandUtility
 class DatabaseUtility(CommandUtility):
   def __init__(self, *args, **kwargs):
     self.__defaults = {
-        "debug": True,
         "db_path": None,
         "engine": None,
         "is_connected": False,
@@ -48,9 +47,9 @@ class DatabaseUtility(CommandUtility):
       from sqlalchemy import create_engine
 
       if self.OS.name == "nt":
-        self.engine = create_engine(f"sqlite:///{self.db_path}", echo = self.debug)
+        self.engine = create_engine(f"sqlite:///{self.db_path}")
       else:
-        self.engine = create_engine(f"sqlite:////{self.db_path}", echo = self.debug)
+        self.engine = create_engine(f"sqlite:////{self.db_path}")
 
       self.set_table_info()
 

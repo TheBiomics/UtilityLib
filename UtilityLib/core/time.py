@@ -3,7 +3,6 @@ from .base import BaseUtility
 class TimeUtility(BaseUtility):
   def __init__(self, *args, **kwargs):
     self.__defaults = {
-        "debug": False,
         "duration": 3,
       }
     self.__defaults.update(kwargs)

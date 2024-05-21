@@ -11,4 +11,4 @@ __all__ = ["OfficeManager", "UtilityManager", "ProjectManager", "ObjDict"]
 def _ProjectManager():
   ...
 
-# UM = easyUtility = EU = PM = _ProjectManager
+UM = easyUtility = EU = PM = _ProjectManager

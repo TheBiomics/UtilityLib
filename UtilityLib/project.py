@@ -8,7 +8,7 @@ class ProjectManager(UtilityManager):
   path_config = None
 
   def __init__(self, *args, **kwargs):
-    self.__defaults = {"debug": False, "config_key": "config"}
+    self.__defaults = {"config_key": "config"}
     self.__defaults.update(kwargs)
     super().__init__(**self.__defaults)
     self._set_base_path()
