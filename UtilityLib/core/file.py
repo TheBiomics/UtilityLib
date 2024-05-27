@@ -28,7 +28,7 @@ class FileSystemUtility(DatabaseUtility):
     2|destination: eg /mnt/data/downloads/xyz-files.tgz
     3|flag_move (False): Deletes the original file
     """
-    self.require('shutil', 'SHUTIL')
+
     _source = args[0] if len(args) > 0 else kwargs.get("source")
     _format = args[1] if len(args) > 1 else kwargs.get("format", "tgz")
     _destination = args[2] if len(args) > 2 else kwargs.get("destination", f"{_source}.{_format}")
@@ -55,6 +55,10 @@ class FileSystemUtility(DatabaseUtility):
   compress_zip = _compress_dir
 
   def _compress_to_tgz(self, *args, **kwargs):
+    """@extends _compress_dir
+
+    Compresses a directory to tar.gz
+    """
     _format = args[1] if len(args) > 1 else kwargs.get("format", "tgz")
     kwargs['format'] = 'tgz'
     if (len(args) > 1):
@@ -617,12 +621,12 @@ class FileSystemUtility(DatabaseUtility):
     _destination = args[1] if len(args) > 1 else kwargs.get("destination")
 
     if not all([_source, _destination]):
-      self.log_info(f"Source or Destination is not specified.")
+      self.log_debug(f"Source or Destination is not specified.")
       return False
 
     self.validate_dir(self.OS.path.dirname(_destination))
 
-    self.log_info(f"Copying... {_source} to {_destination}.")
+    self.log_debug(f"Copying... {_source} to {_destination}.")
     self.SHUTIL.copyfile(_source, _destination)
     return self.check_path(_destination)
 
@@ -832,12 +836,18 @@ class FileSystemUtility(DatabaseUtility):
   find_files = _search_file_filter
   search = _search_file_filter
 
-  def get_file_types(self, *args, **kwargs):
-    """Search files using extension
+  def _walk_files_by_extension(self, *args, **kwargs):
+    """Search files using extension(s) as suffix
 
+    @params
+    0|source
+    1|ext: string, tuple, list or set containing extensions
+
+    @returns
+    files matches  as list found using os.walk
     """
-    _source = args[0] if len(args) > 0 else kwargs.get("source", getattr(self, "source", self.OS.getcwd()))
-    _ext = args[1] if len(args) > 1 else kwargs.get("ext", getattr(self, "ext", ()))
+    _source = kwargs.get("source", args[0] if len(args) > 0 else getattr(self, "source", self.OS.getcwd()))
+    _ext = kwargs.get("ext", args[1] if len(args) > 1 else getattr(self, "ext", ()))
     _matches = []
 
     if not all((_source, len(_ext) > 0)):
@@ -848,6 +858,11 @@ class FileSystemUtility(DatabaseUtility):
         if filename.endswith(_ext):
           _matches.append(self.OS.path.join(_root, filename))
     return _matches
+
+  get_file_types = _walk_files_by_extension
+  find_file_types = _walk_files_by_extension
+  search_file_types = _walk_files_by_extension
+  ext_files = _walk_files_by_extension
 
   def _search_path_pattern(self, *args, **kwargs):
     """Internal Function to Search Paths based on pattern
@@ -881,7 +896,7 @@ class FileSystemUtility(DatabaseUtility):
     _dir_created = {}
     for _d in _dir_paths:
       if len(_d) > 1 and not self.OS.path.exists(_d):
-        self.log_info(f"Path does not exist. Creating {_d}...")
+        self.log_debug(f"Path does not exist. Creating {_d}...")
         _res = self.OS.makedirs(_d)
         _dir_created[_d] = _res
       else:
@@ -946,9 +961,9 @@ class FileSystemUtility(DatabaseUtility):
     if not self.check_path(_dir):
       _res = self.create_dir(_dir, **kwargs)
       if _dir in _res.keys():
-        self.log_info(f"Directory created.")
+        self.log_debug(f"Directory created.")
       else:
-        self.log_info(f"Failed to create directory {_dir}.")
+        self.log_error(f"Failed to create directory {_dir}.")
     return _dir
 
   validate_path = validate_dir

@@ -582,10 +582,11 @@ class DataUtility(FileSystemUtility):
     return _expanded
 
   def text_to_slug(self, *args, **kwargs):
-    _text = args[0] if len(args) > 0 else kwargs.get("text")
-    _keep = args[1] if len(args) > 1 else kwargs.get("keep", ["-"])
-    _replace_with = args[1] if len(args) > 1 else kwargs.get("replace_with", "-")
-    _replacements = args[2] if len(args) > 2 else kwargs.get("keep", ["-"])
+    _text = kwargs.get("text", args[0] if len(args) > 0 else "")
+    _keep = kwargs.get("keep", args[1] if len(args) > 1 else ["-"])
+    _replace_with = kwargs.get("replace_with", args[2] if len(args) > 2 else "-")
+    _replacements = kwargs.get("keep", args[3] if len(args) > 3 else {"_": "-"})
+    _lower = kwargs.get("lower", args[4] if len(args) > 4 else False)
 
     if isinstance(_text, (str)):
       _text = "".join([_c if _c.isalnum() or _c in _keep else _replace_with for _c in _text])
@@ -593,7 +594,9 @@ class DataUtility(FileSystemUtility):
         for _k, _v in _replacements.items():
           _text = _text.replace(_k, _v)
 
-    return _text
+    return _text.lower() if _lower else _text
+
+  slug = text_to_slug
 
   def print_csv(self, *args, **kwargs):
       _args = [str(_a) for _a in self.flatten(args)]

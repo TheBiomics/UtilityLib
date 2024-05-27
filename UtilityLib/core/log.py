@@ -32,8 +32,10 @@ class _ColoredFormatter(_Logging.Formatter):
 
 class LoggingUtility(TimeUtility):
   log_type = "info"
-  log_file = "UtilityLib.log"
-
+  log_file_name = "UtilityLib.log"
+  log_file_path = None
+  log_to_file = True
+  log_to_console = True
   def __init__(self, *args, **kwargs):
     self.__defaults = {
         "last_message": None,
@@ -42,6 +44,9 @@ class LoggingUtility(TimeUtility):
 
     self.__defaults.update(kwargs)
     super().__init__(**self.__defaults)
+    if self.log_file_path is None:
+      self.log_file_path = self.get_path(self.log_file_name)
+
     self.set_logging(**self.__defaults)
     # self._set_file_log_handler()
 
@@ -50,6 +55,9 @@ class LoggingUtility(TimeUtility):
 
   def _set_console_log_handler(self, *args, **kwargs):
     """Set Console Log Handler"""
+    if not self.log_to_console is True:
+      return
+
     _log_level = _Logging.INFO
     if isinstance(self.log_level, (str)):
       self.log_level = self.log_level.upper()
@@ -66,10 +74,12 @@ class LoggingUtility(TimeUtility):
 
   def _set_file_log_handler(self, *args, **kwargs):
     """Set File Log Handler and Log Everything"""
+    if not self.log_to_file is True:
+      return
 
-    if not self.path_base is None:
-      _log_file_path = self.get_path(self.log_file)
-      _fh = _Logging.FileHandler(_log_file_path)
+    if not self.log_file_path is None:
+      self.log_file_path = self.get_path(self.log_file_name)
+      _fh = _Logging.FileHandler(self.log_file_path)
       _fh.setLevel(_Logging.DEBUG)
 
       _fmt = _Logging.Formatter('|%(asctime)s\t|%(name)s\t|%(levelname)s\t|%(message)s')
@@ -78,6 +88,10 @@ class LoggingUtility(TimeUtility):
 
   def set_logging(self, *args, **kwargs):
     """Logging Setup"""
+
+    if not any([self.log_to_console, self.log_to_file]):
+      return
+
     self.LogHandler = _Logging.getLogger(self.name)
     self.LogHandler.setLevel(_Logging.DEBUG)
 
@@ -95,11 +109,12 @@ class LoggingUtility(TimeUtility):
     if self.LogHandler is None:
       self.set_logging()
 
-    _lh = getattr(self.LogHandler, _log_type)
-    if _lh:
-      _lh(_message)
-    else:
-      print(_message)
+    if not self.LogHandler is None:
+      _lh = getattr(self.LogHandler, _log_type)
+      if _lh:
+        _lh(_message)
+      else:
+        print(_message)
 
   def log_debug(self, *args, **kwargs):
     kwargs.update({"log_type": "debug"})

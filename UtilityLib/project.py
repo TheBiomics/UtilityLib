@@ -1,5 +1,6 @@
 from .utility import UtilityManager
-from . import ObjDict
+from .lib import ObjDict
+from .lib import EntityPath
 
 class ProjectManager(UtilityManager):
   name = "project"
@@ -22,24 +23,23 @@ class ProjectManager(UtilityManager):
   def _set_base_path(self, *args, **kwargs):
     if getattr(self, 'path_base'):
       # It's set
-
       ...
     elif hasattr(self, 'path_bases'):
       self.set_project_paths(path_bases=getattr(self, 'path_bases'))
     else:
-      self.path_base = self.OS.getcwd()
+      self.path_base = EntityPath(self.OS.getcwd())
 
   def set_project_paths(self, *args, **kwargs):
     _path_bases = args[0] if len(args) > 0 else kwargs.get("path_bases", self.path_base)
     # Consider first path for Linux and second path for Windows
     if isinstance(_path_bases, (str)):
-      self.path_base = _path_bases
+      self.path_base = EntityPath(_path_bases)
     elif isinstance(_path_bases, (list, tuple)):
       _path_bases = _path_bases * 2
-      self.path_base = _path_bases[1] if self.is_windows else _path_bases[0]
+      self.path_base = EntityPath(_path_bases[1] if self.is_windows else _path_bases[0])
     elif isinstance(_path_bases, (dict)):
       # Consider that order of the dict is preserved
-      self.path_base = self.set_project_paths(path_bases=_path_bases.values())
+      self.path_base = EntityPath(self.set_project_paths(path_bases=_path_bases.values()))
 
   def set_config_path(self, *args, **kwargs):
     self.update_attributes(self, kwargs, self.__defaults)
@@ -80,7 +80,10 @@ class ProjectManager(UtilityManager):
 
   def get_path(self, *args, **kwargs):
     _relative_path = args[0] if len(args) > 0 else kwargs.get("path", "")
-    return f"{self.path_base.rstrip('/')}/{_relative_path.lstrip('/')}"
+    _fp = str(_relative_path).lstrip('/')
+    if not self.path_base is None:
+      _fp = self.path_base / _fp
+    return _fp
 
   def get_join(self, *args, **kwargs):
     _key = args[0] if len(args) > 0 else kwargs.get("key", None)
