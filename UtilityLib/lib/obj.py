@@ -29,9 +29,7 @@ class ObjDict(dict):
       self[name] = value
 
   def __setitem__(self, name, value):
-    _is_frozen = hasattr(self, "__frozen") and object.__getattribute__(
-      self, "__frozen"
-    )
+    _is_frozen = hasattr(self, "__frozen") and object.__getattribute__(self, "__frozen")
 
     if _is_frozen and name not in super().keys():
       raise KeyError(name)
@@ -48,6 +46,7 @@ class ObjDict(dict):
       p[key] = self
       object.__delattr__(self, "__parent")
       object.__delattr__(self, "__key")
+
   def __add__(self, other):
     if not self.keys():
       return other
