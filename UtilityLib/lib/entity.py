@@ -3,26 +3,63 @@ from pathlib import Path
 class EntityPath(Path):
   _flavour = Path('.')._flavour
   prevent_delete = True
+
   def __new__(cls, *args, **kwargs):
     return super().__new__(cls, *args, **kwargs)
 
-  def __init__(self, *args, **kwargs):
-    str.__init__(self)
-
-  def __len__(self):
+  def len(self):
     return len(str(self))
+
+  __len__ = len
 
   def __str__(self):
     return super().__str__()
 
-  def _read_file(self, _method=None):
+  def help(self):
+    """
+    Extension(s): Path.suffix, Path.suffixes
+    Name: Path.name
+    Stem: Path.stem (without suffixes)
+
+    ## Noteable Methods
+    Path.rglob(pattern, *, case_sensitive=None)
+    Path.samefile(other_path)
+    Path.symlink_to(target, target_is_directory=False)
+    Path.write_bytes(data) # Write binary data
+    Path.walk()
+    Path.rename(target)
+    Path.replace(target)
+    Path.expanduser()
+    Path.exists(*, follow_symlinks=True)
+    Path.chmod(mode, *, follow_symlinks=True)
+    Path.cwd()
+    Path.with_name(new_name.ext) # Replaces the file name
+    Path.with_stem(new_name) # Changes the file name (keeping extension)
+    Path.with_suffix
+    Path.match
+    Path.parts
+    """
+
+  def ext(self):
+    return "".join(self.suffixes)
+
+  def _read_lines(self, limit=None):
+    if not self.is_file():
+      raise ValueError(f"{self} is not a file.")
+
+    with self.open() as _f:
+      yield _f.readlines(limit)
+
+  readlines = _read_lines
+
+  def _read_file(self, method=None):
     """Read the text from the file.
       0|method: Custom method/function to read the file
     """
     if not self.is_file():
       raise ValueError(f"{self} is not a file.")
-    if not _method is None:
-      return _method(str(self))
+    if not method is None:
+      return method(str(self))
     return super().read_text()
 
   read_text = _read_file
@@ -80,26 +117,36 @@ class EntityPath(Path):
     else:
       raise ValueError(f"{self} is neither a file nor a directory.")
 
-  def move(self, target):
+  def move(self, destination):
     """Move the file or directory to a new location."""
     if self.prevent_delete:
       return
-    import shutil as _SHUTIL
-    _SHUTIL.move(str(self), str(target))
-    return EntityPath(target)
 
-  def copy(self, _destination):
+    destination = EntityPath(destination)
+
+    # If destination parent directories are not present
+    if not destination.parent().exists():
+      destination.parent().mkdir(parents=True, exist_ok=True)
+
+    import shutil as _SHUTIL
+    _SHUTIL.move(str(self), str(destination))
+    return EntityPath(destination)
+
+  def copy(self, destination):
     """Copy the file or directory to a new location."""
     import shutil as _SHUTIL
 
-    _target_path = EntityPath(_destination)
-    if not _target_path.parent().exists():
-      _target_path.parent().mkdir(parents=True, exist_ok=True)
+    destination = EntityPath(destination)
+    # If target parent directories are not present
+    if not destination.parent().exists():
+      destination.parent().mkdir(parents=True, exist_ok=True)
+
     if self.is_file():
-      _SHUTIL.copy(str(self), str(_target_path))
+      _SHUTIL.copy(str(self), str(destination))
     elif self.is_dir():
-      _SHUTIL.copytree(str(self), str(_target_path))
-    return _target_path
+      _SHUTIL.copytree(str(self), str(destination))
+
+    return destination
 
   def exists(self):
     """Check if the path exists."""
@@ -113,21 +160,27 @@ class EntityPath(Path):
     """Return the name of the file or directory."""
     return self.name
 
-  def search(self, _pattern="**"):
-    return self.glob(_pattern)
+  def search(self, pattern="**"):
+    return self.glob(pattern)
 
-  def size(self, _unit=None):
+  def size(self, converter=None):
     """Return the size of the file or directory."""
+    _size = None
     if self.is_file():
-      return self.stat().st_size
+      _size = self.stat().st_size
     elif self.is_dir():
-      return sum(f.stat().st_size for f in self.rglob('*') if f.is_file())
+      _size = sum(f.stat().st_size for f in self.rglob('*') if f.is_file())
     else:
       raise ValueError(f"{self} is neither a file nor a directory.")
 
-  def parent(self, _level=0):
+    if not converter is None and callable(converter):
+      return converter(_size)
+
+    return _size
+
+  def parent(self, level=0):
     """Return the parent directory."""
-    return EntityPath(self.parents[_level])
+    return EntityPath(self.parents[level])
 
   def full_path(self):
     """Return the absolute path."""
@@ -137,9 +190,9 @@ class EntityPath(Path):
     """Return the relative path from the current working directory."""
     return str(self.relative_to(_path or Path.cwd()))
 
-  def has(self, _file=None):
+  def has(self, file=None):
     """Case sensitive check if pattern (e.g., **/file.txt; *ile.tx*) exists"""
-    return len(self.search(_file)) > 0
+    return len(list(self.search(file))) > 0
 
   contains = has
   has_file = has
@@ -151,5 +204,5 @@ class EntityPath(Path):
   def upper(self):
     return str(self).upper()
 
-  def __add__(self, _what=''):
-    return self / _what
+  def __add__(self, what=''):
+    return self / what

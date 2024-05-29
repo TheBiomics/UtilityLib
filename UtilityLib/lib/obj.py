@@ -1,24 +1,24 @@
 import copy as COPY_Mod
 
 class ObjDict(dict):
-  def __init__(__self, *args, **kwargs):
-    object.__setattr__(__self, "__parent", kwargs.pop("__parent", None))
-    object.__setattr__(__self, "__key", kwargs.pop("__key", None))
-    object.__setattr__(__self, "__frozen", False)
+  def __init__(self, *args, **kwargs):
+    object.__setattr__(self, "__parent", kwargs.pop("__parent", None))
+    object.__setattr__(self, "__key", kwargs.pop("__key", None))
+    object.__setattr__(self, "__frozen", False)
     for arg in args:
       if not arg:
         continue
       elif isinstance(arg, dict):
         for key, val in arg.items():
-          __self[key] = __self._hook(val)
+          self[key] = self._hook(val)
       elif isinstance(arg, tuple) and (not isinstance(arg[0], tuple)):
-        __self[arg[0]] = __self._hook(arg[1])
+        self[arg[0]] = self._hook(arg[1])
       else:
         for key, val in iter(arg):
-          __self[key] = __self._hook(val)
+          self[key] = self._hook(val)
 
     for key, val in kwargs.items():
-      __self[key] = __self._hook(val)
+      self[key] = self._hook(val)
 
   def __setattr__(self, name, value):
     if hasattr(self.__class__, name):
@@ -29,12 +29,15 @@ class ObjDict(dict):
       self[name] = value
 
   def __setitem__(self, name, value):
-    isFrozen = hasattr(self, "__frozen") and object.__getattribute__(
+    _is_frozen = hasattr(self, "__frozen") and object.__getattribute__(
       self, "__frozen"
     )
-    if isFrozen and name not in super(ObjDict, self).keys():
+
+    if _is_frozen and name not in super().keys():
       raise KeyError(name)
-    super(ObjDict, self).__setitem__(name, value)
+
+    super().__setitem__(name, value)
+
     try:
       p = object.__getattribute__(self, "__parent")
       key = object.__getattribute__(self, "__key")
@@ -45,7 +48,6 @@ class ObjDict(dict):
       p[key] = self
       object.__delattr__(self, "__parent")
       object.__delattr__(self, "__key")
-
   def __add__(self, other):
     if not self.keys():
       return other

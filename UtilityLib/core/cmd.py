@@ -1,12 +1,7 @@
 from functools import lru_cache as CacheMethod
-from tqdm.auto import tqdm as TQDMProgressBar
 from .log import LoggingUtility
 
 class CommandUtility(LoggingUtility):
-  ProgressBar = TQDMProgressBar
-  PB = ProgressBar
-  TQDM = ProgressBar
-
   def __init__(self, *args, **kwargs):
     self.__defaults = {}
     self.__defaults.update(kwargs)

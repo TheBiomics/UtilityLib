@@ -16,7 +16,7 @@ class _ColoredFormatter(_Logging.Formatter):
   INVERT_END = '\033[27m'
 
   COLORS = {
-    'DEBUG': 'YELLOW',
+    'DEBUG': 'BLUE',
     'INFO': 'WHITE',
     'WARNING': 'YELLOW',
     'ERROR': 'RED',
@@ -37,17 +37,15 @@ class LoggingUtility(TimeUtility):
   log_to_file = True
   log_to_console = True
   def __init__(self, *args, **kwargs):
-    self.__defaults = {
+    __defaults = {
         "last_message": None,
         "log_table_name": "ul_watchdog",
       }
 
-    self.__defaults.update(kwargs)
-    super().__init__(**self.__defaults)
-    if self.log_file_path is None:
-      self.log_file_path = self.get_path(self.log_file_name)
+    __defaults.update(kwargs)
+    super().__init__(**__defaults)
 
-    self.set_logging(**self.__defaults)
+    self.set_logging(**__defaults)
     # self._set_file_log_handler()
 
   LogHandler = None
@@ -78,7 +76,6 @@ class LoggingUtility(TimeUtility):
       return
 
     if not self.log_file_path is None:
-      self.log_file_path = self.get_path(self.log_file_name)
       _fh = _Logging.FileHandler(self.log_file_path)
       _fh.setLevel(_Logging.DEBUG)
 
@@ -88,6 +85,9 @@ class LoggingUtility(TimeUtility):
 
   def set_logging(self, *args, **kwargs):
     """Logging Setup"""
+
+    if self.log_file_path is None:
+      self.log_file_path = self.log_file_name
 
     if not any([self.log_to_console, self.log_to_file]):
       return

@@ -1,6 +1,9 @@
 from .file import FileSystemUtility
+from tqdm.auto import tqdm as _TQDMPB
 
 class DataUtility(FileSystemUtility):
+  TQDM = _TQDMPB
+
   def __init__(self, *args, **kwargs):
     self.__defaults = {}
     self.__defaults.update(kwargs)
@@ -57,6 +60,25 @@ class DataUtility(FileSystemUtility):
     """Checks if variable is a boolean"""
     return self.check_instance(*args, **kwargs.update({"instances": self.type_bools}))
 
+  # Iteration
+  _loop_obj = None
+  def _loop_with_progress_bar(self, *args, **kwargs):
+    _items = kwargs.pop('items', args[0] if len(args) > 0 else [])
+    _desc = kwargs.pop('desc', args[1] if len(args) > 1 else "Item")
+
+    with self.TQDM(_items, **kwargs) as _pb:
+      self._loop_obj = _pb
+      for _i in _items:
+        _pb.desc = f"{_desc} {_i}"
+        _pb.update(1)
+        yield _i
+
+  _loop_pb = _loop_with_progress_bar
+  loop_pb = _loop_with_progress_bar
+  loop  = _loop_with_progress_bar
+  ProgressBar  = _loop_with_progress_bar
+  PB  = _loop_with_progress_bar
+
   # DataFrame Functions
   ## Pandas
   def df_reset_columns(self, *args, **kwargs):
@@ -71,8 +93,11 @@ class DataUtility(FileSystemUtility):
       # Float, int list etc are not tested or handled
     """
 
-    _df = args[0] if len(args) > 0 else kwargs.get("df")
-    _key = args[1] if len(args) > 1 else kwargs.get("key")
+    _df = kwargs.get("df", args[0] if len(args) > 0 else None)
+    _key = kwargs.get("key", args[1] if len(args) > 1 else None)
+
+    if not any([_df, _key]):
+      return None
 
     _joined_cols = ["__".join(_idx) for _idx in _df.columns.ravel()]
     _df.columns = _joined_cols if len(_joined_cols) == len(_df.columns) else _df.columns
@@ -216,13 +241,14 @@ class DataUtility(FileSystemUtility):
 
     """
 
-    _excel_writer = args[0] if len(args) > 0 else kwargs.get("excel")
-    _df = args[1] if len(args) > 1 else kwargs.get("df")
-    _sheet_name = args[2] if len(args) > 2 else kwargs.get("sheet", 'DataFrame') # Will be deprecated
-    _excel_options = args[3] if len(args) > 3 else kwargs.get("excel_options", {'index': False})
+    _excel_writer = kwargs.get("excel",  args[0] if len(args) > 0 else None)
+    _df = kwargs.get("df", args[1] if len(args) > 1 else None)
+    _sheet_name = kwargs.get("sheet", args[2] if len(args) > 2 else 'DataFrame') # Will be deprecated
+    _excel_options = kwargs.get("excel_options", args[3] if len(args) > 3 else {'index': False})
 
-    if isinstance(_excel_writer, (str, )):
-      _excel_writer = self.pd_excel_writer(_excel_writer, **kwargs)
+    self.require_from('pathlib', 'Path', 'Path')
+    if isinstance(_excel_writer, (str, self.Path)):
+      _excel_writer = self.pd_excel_writer(str(_excel_writer), **kwargs)
 
     _df.copy().to_excel(_excel_writer, sheet_name=_sheet_name, **_excel_options)
     hasattr(_excel_writer, 'save') and _excel_writer.save()
@@ -306,8 +332,8 @@ class DataUtility(FileSystemUtility):
       0|data: List/Tuple/Set/Dict(values)/str
       1|what: What char to strip
     """
-    _data = args[0] if len(args) > 0 else kwargs.get("data")
-    _what = args[1] if len(args) > 1 else kwargs.get("what")
+    _data = kwargs.get("data", args[0] if len(args) > 0 else None)
+    _what = kwargs.get("what", args[1] if len(args) > 1 else '')
     _result = []
     if isinstance(_data, (str)):
       ...
@@ -331,8 +357,8 @@ class DataUtility(FileSystemUtility):
       0|data: List/Tuple/Set/Dict(values)/str
       1|char: What char to strip
     """
-    _data = args[0] if len(args) > 0 else kwargs.get("data")
-    _char = args[1] if len(args) > 1 else kwargs.get("char")
+    _data = kwargs.get("data", args[0] if len(args) > 0 else None)
+    _char = kwargs.get("char", args[1] if len(args) > 1 else None)
 
     if isinstance(_data, (str)):
       _data = _data.strip(_char) if _char and len(_char) > 0 else _data.strip()
@@ -347,8 +373,9 @@ class DataUtility(FileSystemUtility):
   def find_all(self, *args, **kwargs):
     """Finds all substrings in a given string
     """
+    _string = kwargs.get("string", args[0] if len(args) > 0 else "")
+
     # Pop first element to extend re_compile method
-    _string = args[0] if len(args) > 0 else kwargs.get("string", "")
     args = args[1:]
     _re_compiled = self.re_compile(*args, **kwargs)
 
@@ -365,7 +392,10 @@ class DataUtility(FileSystemUtility):
     1|size: chunk size to yield
 
     """
-    _obj = args[0] if len(args) > 0 else kwargs.get("obj")
+    _obj = kwargs.get("obj", args[0] if len(args) > 0 else None)
+
+    if _obj is None:
+      return _obj
 
     from itertools import islice
     return islice(_obj, *args[1:])
@@ -379,8 +409,11 @@ class DataUtility(FileSystemUtility):
     1|size: chunk size to yield
 
     """
-    _obj = args[0] if len(args) > 0 else kwargs.get("obj")
-    _size = args[1] if len(args) > 1 else kwargs.get("size", 10)
+    _obj = kwargs.get("obj", args[0] if len(args) > 0 else None)
+    _size = kwargs.get("size", args[1] if len(args) > 1 else 10)
+    if _obj is None or not hasattr(_obj, '__iter__'):
+      return _obj
+
     for _n in range(0, len(_obj), _size):
       yield _obj[_n:_n+_size]
 
@@ -431,8 +464,8 @@ class DataUtility(FileSystemUtility):
       combination(["A", "U", "G", "C"], 8)
 
     """
-    _items = args[0] if len(args) > 0 else kwargs.get("items", [])
-    _repeat = args[1] if len(args) > 1 else kwargs.get("repeat", 1)
+    _items = kwargs.get("items", args[0] if len(args) > 0 else [])
+    _repeat = kwargs.get("repeat", args[1] if len(args) > 1 else 1)
 
     self.require("itertools", "IT")
     return self.IT.product(*_items, repeat=_repeat)
@@ -441,15 +474,15 @@ class DataUtility(FileSystemUtility):
     """
       @returns combinations of a list.
     """
-    _items = args[0] if len(args) > 0 else kwargs.get("items", [])
-    _repeat = args[1] if len(args) > 1 else kwargs.get("repeat", 1)
+    _items = kwargs.get("items", args[0] if len(args) > 0 else [])
+    _repeat = kwargs.get("repeat", args[1] if len(args) > 1 else 1)
     self.require("itertools", "IT")
     return self.IT.combinations(_items, _repeat)
 
   def get_parts(self, *args, **kwargs):
-    _text = args[0] if len(args) > 0 else kwargs.get("text")
-    _position = args[1] if len(args) > 1 else kwargs.get("position", -3)
-    _delimiter = args[2] if len(args) > 2 else kwargs.get("delimiter", "/")
+    _text = kwargs.get("text", args[0] if len(args) > 0 else None)
+    _position = kwargs.get("position", args[1] if len(args) > 1 else -3)
+    _delimiter = kwargs.get("delimiter", args[2] if len(args) > 2 else "/")
 
     _text = _text.split(_delimiter)
     return _text[_position]
@@ -465,21 +498,22 @@ class DataUtility(FileSystemUtility):
       @return
       list
 
-    """
-    _text1 = args[0] if len(args) > 0 else kwargs.get("text1")
-    _text2 = args[1] if len(args) > 1 else kwargs.get("text2")
-    _min_len = args[2] if len(args) > 2 else kwargs.get("min_len", 1)
-
     # DiffMatcher not working as expected
     # from difflib import SequenceMatcher
     # _seq_match = SequenceMatcher(None, _text1, _text2)
     # _match_blocks = _seq_match.get_matching_blocks()
     # _results = [_text1[_b.a: _b.a + _b.size] for _b in _match_blocks if _b.size >= _min_len]
 
-    from itertools import combinations
+    """
 
-    _t1_combs = [_text1[x:y] for x, y in combinations(range(len(_text1) + 1), r=2)]
-    _t2_combs = [_text2[x:y] for x, y in combinations(range(len(_text2) + 1), r=2)]
+    _text1 = kwargs.get("text1", args[0] if len(args) > 0 else None)
+    _text2 = kwargs.get("text2", args[1] if len(args) > 1 else None)
+    _min_len = kwargs.get("min_len", args[2] if len(args) > 2 else 1)
+
+    from itertools import combinations as _C
+
+    _t1_combs = [_text1[x:y] for x, y in _C(range(len(_text1) + 1), r=2)]
+    _t2_combs = [_text2[x:y] for x, y in _C(range(len(_text2) + 1), r=2)]
 
     _count_2 = [(_c, _s) for _c, _s in zip(_t2_combs, [_text1.count(_t) for _t in _t2_combs]) if _s > 0 and len(_c) > _min_len]
     _count_1 = [(_c, _s) for _c, _s in zip(_t1_combs, [_text2.count(_t) for _t in _t1_combs]) if _s > 0 and len(_c) > _min_len]
@@ -558,8 +592,8 @@ class DataUtility(FileSystemUtility):
       - preserve or replace space with dash or underscore???
 
     """
-    _text = args[0] if len(args) > 0 else kwargs.get("text", "")
-    _keep = args[1] if len(args) > 1 else kwargs.get("keep", " ")
+    _text = kwargs.get("text", args[0] if len(args) > 0 else "")
+    _keep = kwargs.get("keep", args[1] if len(args) > 1 else " ")
 
     # Compile or get the existing object
     self.re_underscore = self.re_underscore if hasattr(self, "re_underscore") else self.re_compile("_")
@@ -599,9 +633,9 @@ class DataUtility(FileSystemUtility):
   slug = text_to_slug
 
   def print_csv(self, *args, **kwargs):
-      _args = [str(_a) for _a in self.flatten(args)]
-      _return = kwargs.get('return', False)
-      _str = ",".join(_args)
-      if _return:
-        return _str
-      print(_str)
+    _args = [str(_a) for _a in self.flatten(args)]
+    _return = kwargs.get('return', False)
+    _str = ",".join(_args)
+    if _return:
+      return _str
+    print(_str)
