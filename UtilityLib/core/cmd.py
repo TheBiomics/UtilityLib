@@ -3,49 +3,91 @@ from .log import LoggingUtility
 
 class CommandUtility(LoggingUtility):
   def __init__(self, *args, **kwargs):
-    self.__defaults = {}
-    self.__defaults.update(kwargs)
-    super().__init__(**self.__defaults)
+    super().__init__(**kwargs)
 
-  def cmd_is_exe(self, program):
+  def is_executable(self, program):
     return self.cmd_which(program) is not None
 
-  is_exe = cmd_is_exe
+  cmd_is_exe = is_executable
+  is_exe = is_executable
 
   def cmd_which(self, program):
     return self.SHUTIL.which(program)
 
   which = cmd_which
 
+  def _format_command(self, *args, **kwargs):
+    """
+    Format the command with positional and keyword arguments.
+
+    :param args: Positional arguments.
+    :param kwargs: Keyword arguments.
+
+    :return: List of command parts.
+    """
+    _command = list(args)
+
+    for _key, _value in kwargs.items():
+      _command.append(f"-{_key}")
+      if isinstance(_value, (list, tuple, set)):
+        _command.extend(list(_value))
+      else:
+        _command.append(_value)
+
+    return list(map(str, _command))
+
   def cmd_call(self, *args, **kwargs):
-    _command = args[0] if len(args) > 0 else kwargs.get("command")
+    """
+    Call a command without capturing output.
+
+    :param command: The command to run.
+    :return: The return code of the command.
+    """
+    _command = self._format_command(*args, **kwargs)
 
     self.require('subprocess', 'SubProcess')
-
-    if isinstance(_command, str):
-      _command = _command.split()
-
-    process = self.SubProcess.call(_command, shell=True)
-    return process
-
-  def cmd_run(self, *args, **kwargs):
-    _command = args[0] if len(args) > 0 else kwargs.get("command")
-    _newlines = args[1] if len(args) > 1 else kwargs.get("newlines", True)
-
-    if _command is None:
+    try:
+      self.log_debug(f"Calling command: {_command}")
+      _result = self.SubProcess.call(_command)
+      return _result
+    except Exception as _e:
+      self.log_error(f"Command '{_command}' failed with error: {_e}")
       return None
 
-    if self.require('shlex', 'SHELLX') and isinstance(_command, str):
-      _command = self.SHELLX.split(_command)
+  call_command = cmd_call
+  call_cmd = cmd_call
 
-    _output = None
+  def cmd_run(self, *args, **kwargs):
+    """
+    Run a command and capture the output.
+
+    :param command: The command to run.
+    :param newlines: Whether to treat the output as text with newlines.
+    :return: The output of the command.
+    """
+
+    _newlines = kwargs.pop('newlines', True)
+    _command = self._format_command(*args, **kwargs)
 
     self.require('subprocess', 'SubProcess')
 
-    _process = self.SubProcess.Popen(_command, stdout=self.SubProcess.PIPE, universal_newlines=_newlines)
-    _output, _error = _process.communicate()
+    try:
+      self.log_debug(f"Running command: {_command}")
+      _result = self.SubProcess.run(
+          _command,
+          stdout=self.SubProcess.PIPE,
+          stderr=self.SubProcess.PIPE,
+          universal_newlines=_newlines,
+          check=True
+      )
+      self.log_debug(f"Command output: {_result.stdout}")
+      return _result.stdout
+    except self.SubProcess.CalledProcessError as _e:
+      self.log_error(f"Command '{_command}' failed with error: {_e.stderr}")
+      return None
 
-    return _output
+  run_command = cmd_run
+  run_cmd = cmd_run
 
   def flatten_args(self, *args, **kwargs):
     _args = args[0] if len(args) > 0 else kwargs.get("mapping", [])

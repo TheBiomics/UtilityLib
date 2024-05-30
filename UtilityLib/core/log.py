@@ -56,7 +56,7 @@ class LoggingUtility(TimeUtility):
     if not self.log_to_console is True:
       return
 
-    _log_level = _Logging.INFO
+    _log_level = _Logging.DEBUG
     if isinstance(self.log_level, (str)):
       self.log_level = self.log_level.upper()
       _log_level = getattr(_Logging, self.log_level, _log_level)

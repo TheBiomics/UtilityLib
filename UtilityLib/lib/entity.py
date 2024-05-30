@@ -65,11 +65,15 @@ class EntityPath(Path):
   read_text = _read_file
   read = _read_file
 
-  def write_text(self, data):
+  def write_text(self, data, mode="a"):
     """Write the given text to the file."""
     if self.exists() and not self.is_file():
       raise ValueError(f"{self} is not a file.")
-    return super().write_text(data)
+
+    with self.open(mode) as _f:
+      _f.write(data)
+
+    return self.exits()
 
   write = write_text
 
@@ -116,6 +120,18 @@ class EntityPath(Path):
       self.rmdir()
     else:
       raise ValueError(f"{self} is neither a file nor a directory.")
+
+  def validate(self):
+    """Make directory/file if doesn't exist."""
+
+    if self.exists():
+      return self
+    elif len(self.suffixes) > 0:
+      self.touch()
+    else:
+      Path(str(self)).mkdir(parents=True, exist_ok=True)
+
+    return self
 
   def move(self, destination):
     """Move the file or directory to a new location."""
