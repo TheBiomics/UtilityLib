@@ -1,5 +1,6 @@
 from warnings import warn as WARN
 from .db import DatabaseUtility
+from ..lib import EntityPath
 
 class FileSystemUtility(DatabaseUtility):
   def __init__(self, *args, **kwargs):
@@ -515,14 +516,18 @@ class FileSystemUtility(DatabaseUtility):
         File extension pkl.gz used against df.gz|pd.gz pickled files
     """
 
-    if self.require('cPickle', "PICKLE", "pickle") and self.require("gzip", "GZip"):
-      _destination = args[0] if len(args) > 0 else kwargs.get("destination")
-      _content = args[1] if len(args) > 1 else kwargs.get("content")
+    _destination = kwargs.get("destination", args[0] if len(args) > 0 else None)
+    _content = kwargs.get("content", args[1] if len(args) > 1 else None)
 
+    self.require('cPickle', "PICKLE", "pickle")
+    self.require("gzip", "GZip")
+
+    try:
       with self.GZip.open(_destination,'wb') as _fh:
         self.PICKLE.dump(_content, _fh)
-    else:
-      self.log_error("Either pickle/gzip module was not loaded or some other error occurred.")
+    except Exception as _e:
+      self.log_error(f"Error: {_e}")
+
     return self.exists(_destination)
 
   save_pickle = write_pickle
@@ -857,6 +862,7 @@ class FileSystemUtility(DatabaseUtility):
       for filename in _file_names:
         if filename.endswith(_ext):
           _matches.append(self.OS.path.join(_root, filename))
+
     return _matches
 
   get_file_types = _walk_files_by_extension
@@ -864,7 +870,7 @@ class FileSystemUtility(DatabaseUtility):
   search_file_types = _walk_files_by_extension
   ext_files = _walk_files_by_extension
 
-  def _search_path_pattern(self, *args, **kwargs):
+  def _search_path_pattern(self, *args, **kwargs) -> list:
     """Internal Function to Search Paths based on pattern
 
     """
@@ -875,32 +881,38 @@ class FileSystemUtility(DatabaseUtility):
     if not _source or not _pattern:
       return _results
 
+    _source = EntityPath(_source)
+
     if isinstance(_pattern, (str)):
       _pattern = [_pattern]
-
-    self._import_module_from('pathlib', 'Path', 'PATH')
 
     for _p in _pattern:
       if "*" not in _p:
         _p = f"*{_p}*"
-      _results.extend([str(f) for f in self.PATH(_source).expanduser().glob(_p)])
+      _results.extend(list(_source.search(_p)))
 
     return _results
 
-  def create_dir(self, *args, **kwargs):
-    _dir_paths = args[0] if len(args) > 0 else kwargs.get("dirs")
-
-    if isinstance(_dir_paths, str):
-      _dir_paths = [_dir_paths]
+  def create_dir(self, *args, **kwargs) -> dict:
+    _path = kwargs.get("path", args[0] if len(args) > 0 else None)
 
     _dir_created = {}
-    for _d in _dir_paths:
-      if len(_d) > 1 and not self.OS.path.exists(_d):
-        self.log_debug(f"Path does not exist. Creating {_d}...")
-        _res = self.OS.makedirs(_d)
-        _dir_created[_d] = _res
-      else:
-        self.log_warning(f"Either {_d} already exists or some other error occurred while creating the file.")
+    if _path is None:
+      pass
+    if isinstance(_path, (EntityPath)):
+      _path.validate()
+      _dir_created[_path] = _path.exists()
+    else:
+      if isinstance(_path, str):
+        _path = [_path]
+
+      for _d in _path:
+        if len(_d) > 1 and not self.OS.path.exists(_d):
+          self.log_debug(f"Path does not exist. Creating {_d}...")
+          _res = self.OS.makedirs(_d)
+          _dir_created[_d] = _res
+        else:
+          self.log_warning(f"Either {_d} already exists or some other error occurred while creating the file.")
 
     return _dir_created
 
@@ -947,24 +959,19 @@ class FileSystemUtility(DatabaseUtility):
   file_exists = check_path
 
   def validate_subdir(self, *args, **kwargs):
-    _base = args[0] if len(args) > 0 else kwargs.get("base")
-    _sub = args[0] if len(args) > 0 else kwargs.get("sub")
-    _rgx = self.re_compile(r"[/\\]")
-    # Check if sub_dir contains any slash so that it is not directory name, append it's parent path
-    if _rgx.search(str(_sub)) == None:
-      return self.validate_dir(f"{_base}{self.OS.sep}{_sub}")
-    else:
-      return self.validate_dir(_sub)
+    # DEPRECATED
+    raise Exception('DEPRECATED')
 
   def validate_dir(self, *args, **kwargs):
-    _dir = args[0] if len(args) > 0 else kwargs.get("dir")
-    if not self.check_path(_dir):
-      _res = self.create_dir(_dir, **kwargs)
-      if _dir in _res.keys():
-        self.log_debug(f"Directory created.")
-      else:
-        self.log_error(f"Failed to create directory {_dir}.")
-    return _dir
+    _path = args[0] if len(args) > 0 else kwargs.get("path")
+    _path = EntityPath(_path)
+
+    try:
+      _path.validate()
+    except Exception as _e:
+      self.log_error(_e)
+
+    return _path
 
   validate_path = validate_dir
 

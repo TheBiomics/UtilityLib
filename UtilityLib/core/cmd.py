@@ -1,4 +1,6 @@
 from functools import lru_cache as CacheMethod
+from contextlib import contextmanager
+
 from .log import LoggingUtility
 
 class CommandUtility(LoggingUtility):
@@ -43,12 +45,13 @@ class CommandUtility(LoggingUtility):
     :param command: The command to run.
     :return: The return code of the command.
     """
+    _cwd = kwargs.pop('cwd', None)
     _command = self._format_command(*args, **kwargs)
 
     self.require('subprocess', 'SubProcess')
     try:
       self.log_debug(f"Calling command: {_command}")
-      _result = self.SubProcess.call(_command)
+      _result = self.SubProcess.call(_command, cwd=_cwd)
       return _result
     except Exception as _e:
       self.log_error(f"Command '{_command}' failed with error: {_e}")
@@ -56,6 +59,12 @@ class CommandUtility(LoggingUtility):
 
   call_command = cmd_call
   call_cmd = cmd_call
+
+  def cmd_run_mock(self, *args, **kwargs):
+    """Mocks cmd_run/cmd_call"""
+    return self.cmd_run('echo', *args, **kwargs)
+
+  cmd_dry_run = cmd_run_mock
 
   def cmd_run(self, *args, **kwargs):
     """
@@ -67,6 +76,7 @@ class CommandUtility(LoggingUtility):
     """
 
     _newlines = kwargs.pop('newlines', True)
+    _cwd = kwargs.pop('cwd', None)
     _command = self._format_command(*args, **kwargs)
 
     self.require('subprocess', 'SubProcess')
@@ -78,6 +88,7 @@ class CommandUtility(LoggingUtility):
           stdout=self.SubProcess.PIPE,
           stderr=self.SubProcess.PIPE,
           universal_newlines=_newlines,
+          cwd=_cwd,
           check=True
       )
       self.log_debug(f"Command output: {_result.stdout}")
@@ -189,7 +200,8 @@ class CommandUtility(LoggingUtility):
     return _params
 
   # Multithreading
-  max_workers = None
+  max_workers = 32
+  num_cores = 8
   thread_executor = None
   semaphore = None
   task_queue = None
@@ -197,12 +209,13 @@ class CommandUtility(LoggingUtility):
 
   def _get_max_workers(self):
     # Get the number of CPU cores available
-    _num_cores = self.OS.cpu_count()
+    self.num_cores = min(self.OS.cpu_count(), self.num_cores)
     # Adjust max_workers based on available CPU cores and workload
-    self.max_workers = min(2 * _num_cores, 32)  # Example: Limit to 2x CPU cores or 32 workers, whichever is lower
+    self.max_workers = min(2 * self.num_cores, self.max_workers)  # Example: Limit to 2x CPU cores or 32 workers, whichever is lower
     return self.max_workers
 
-  def init_multiprocessing(self):
+  def init_multiprocessing(self, *args, **kwargs):
+    self.update_attributes(self, kwargs)
     self.require('concurrent.futures', 'ConcurrentTasks')
     self.require('threading', 'Threading')
     self.require('queue', 'QueueProvider')
@@ -210,6 +223,9 @@ class CommandUtility(LoggingUtility):
     self.task_queue = self.QueueProvider.Queue()
     self.semaphore = self.Threading.Semaphore(self.max_workers)
     self.thread_executor = self.ConcurrentTasks.ThreadPoolExecutor(max_workers=self.max_workers)
+    self.log_debug(f"Starting with cores {self.num_cores} and max_workers {self.max_workers}.")
+
+  start_mp = init_multiprocessing
 
   def __enter__(self):
     self.init_multiprocessing()
@@ -222,7 +238,7 @@ class CommandUtility(LoggingUtility):
   def _cache_wrapper(self, func, *arg, **kwarg):
     return func(*arg, **kwarg)
 
-  def queue_task(self, func, *args, **kwargs):
+  def queue_task(self, func, *args, **kwargs) -> None:
     """Queue a function operation
 
 @example:
@@ -230,45 +246,107 @@ def method_to_execute(self, *arg, **kwargs):
   # Example function to be cached
   return arg ** 2
 
-_cu = CommandUtility()
-_cu.init_multiprocessing()
-_cu.queue_task(method_to_execute, *args, **kwargs)
+_.init_multiprocessing
+_.queue_task(method_to_execute, *args, **kwargs)
+_.process_queue
+_.queue_final_callback
 
 """
     self.task_queue.put((func, args, kwargs))
 
-  def process_queue(self, wait=False):
-    # Process tasks from the queue
-    while not self.task_queue.empty():
+  def queue_timed_callback(self, callback=None, *args, **kwargs) -> None:
+    _cb_delay = kwargs.pop("cb_delay", 300)
+    if not callback is None and callable(callback):
+      self.require('threading', 'Threading')
+      self.log_debug(f'Delegating a callback in {_cb_delay}s.')
+      self.Threading.Timer(_cb_delay, callback, args=args, kwargs=kwargs)
+
+  def queue_final_callback(self, callback=None, *args, **kwargs) -> None:
+    if not callback is None and callable(callback):
+      self.require('threading', 'Threading')
+      _check_thread = self.Threading.Thread(target=self._queue_final_cb_fn_bg_exe, args=(callback, *args), kwargs=kwargs)
+      _check_thread.start()
+
+  def _queue_final_cb_fn_bg_exe(self, callback, *args, **kwargs) -> None:
+    _cb_delay = kwargs.pop("cb_delay", 60)
+    while True:
+      _job_r, _job_p = self.queue_running, self.queue_pending
+      if all([_job_r > 0, _job_p > 0]):
+        self.log_debug(f'{_job_r} job(s) running and {_job_p} job(s) pending. Sleeping for {_cb_delay}s')
+        self.time_sleep(_cb_delay)
+      else:
+        self.log_debug(f'Job Status: {self.config.jobs}. Executing final callback...')
+        callback(*args, **kwargs)
+        break
+
+  def process_queue(self, *args, **kwargs):
+    """Process tasks from the queue
       # Acquire semaphore to limit concurrency
+      # Get task from the queue
+      # Submit task to the executor
+    """
+
+    while not self.task_queue.empty():
       try:
         with self.semaphore:
-          # Get task from the queue
           _func, _args, _kwargs = self.task_queue.get()
-          # Submit task to the executor
           _ftr_obj = self.thread_executor.submit(_func, *_args, **_kwargs)
           self.future_objects.append(_ftr_obj)
       except Exception as e:
-        # Handle exceptions raised during file operation
-        print(f"Error processing the queue: {e}")
+        self.log_error(f"Error processing the queue: {e}")
 
-    if wait:
-      self._wait_for_completion()
+    self._shut_down_queue(*args, **kwargs)
 
-  def _wait_for_completion(self):
-    # Wait for all tasks to complete
-    self.ConcurrentTasks.wait(self.future_objects)
+    return self.queue_task_status
+
+  def _shut_down_queue(self, *args, **kwargs):
+    _wait = kwargs.get("wait", args[0] if len(args) > 0 else False)
+
+    self.log_debug(f'Waiting Queue To Complete: wait = {_wait}')
+    if _wait:
+      # Wait for all tasks to complete
+      self.ConcurrentTasks.wait(self.future_objects)
+
     # Shutdown the ThreadPoolExecutor
-    self.thread_executor.shutdown(wait=True)
+    self.thread_executor.shutdown(wait=_wait)
 
-  def queue_task_status(self):
-    # ToDo: ObjDict::config
-    self.config.jobs.done = sum(1 for _ftr in self.future_objects if _ftr.done())
-    self.config.jobs.pending = sum(1 for _ftr in self.future_objects if not _ftr.done() and not _ftr.running())
+  @property
+  def queue_running(self) -> int:
     self.config.jobs.running = sum(1 for _ftr in self.future_objects if not _ftr.done() and _ftr.running())
+    return self.config.jobs.running
+
+  @property
+  def queue_done(self) -> int:
+    self.config.jobs.done = sum(1 for _ftr in self.future_objects if _ftr.done())
+    return self.config.jobs.done
+
+  @property
+  def queue_pending(self) -> int:
+    self.config.jobs.pending = sum(1 for _ftr in self.future_objects if not _ftr.done() and not _ftr.running())
+    return self.config.jobs.pending
+
+  @property
+  def queue_task_status(self) -> dict:
+    # ToDo: ObjDict::config
+    self.queue_running
+    self.queue_done
+    self.queue_pending
     return self.config.jobs
 
   def sys_open_files(self):
     import psutil as PC
     _p = PC.Process()
     return _p.open_files()
+
+  @contextmanager
+  def contextual_directory(self, new_path):
+    """A context manager for changing the current working directory
+    later switches back to the original directory.
+
+    """
+    _old_path = self.OS.getcwd()
+    try:
+      self.OS.chdir(new_path)
+      yield
+    finally:
+      self.OS.chdir(_old_path)

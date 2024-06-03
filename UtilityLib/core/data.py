@@ -65,11 +65,13 @@ class DataUtility(FileSystemUtility):
   def _loop_with_progress_bar(self, *args, **kwargs):
     _items = kwargs.pop('items', args[0] if len(args) > 0 else [])
     _desc = kwargs.pop('desc', args[1] if len(args) > 1 else "Item")
+    _desc_key = kwargs.pop('desc_key', args[2] if len(args) > 2 else None)
 
     with self.TQDM(_items, **kwargs) as _pb:
       self._loop_obj = _pb
       for _i in _items:
-        _pb.desc = f"{_desc} {_i}"
+        _desc_label = _i if _desc_key is None else _i[_desc_key]
+        _pb.desc = f"{_desc} {_desc_label}"
         _pb.update(1)
         yield _i
 
@@ -243,7 +245,7 @@ class DataUtility(FileSystemUtility):
 
     _excel_writer = kwargs.get("excel",  args[0] if len(args) > 0 else None)
     _df = kwargs.get("df", args[1] if len(args) > 1 else None)
-    _sheet_name = kwargs.get("sheet", args[2] if len(args) > 2 else 'DataFrame') # Will be deprecated
+    _sheet_name = kwargs.get("sheet_name", args[2] if len(args) > 2 else 'DataFrame') # Will be deprecated
     _excel_options = kwargs.get("excel_options", args[3] if len(args) > 3 else {'index': False})
 
     self.require_from('pathlib', 'Path', 'Path')

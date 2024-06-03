@@ -43,14 +43,21 @@ class EntityPath(Path):
   def ext(self):
     return "".join(self.suffixes)
 
-  def _read_lines(self, limit=None):
+  def _read_lines(self, num_lines=None):
     if not self.is_file():
       raise ValueError(f"{self} is not a file.")
 
-    with self.open() as _f:
-      yield _f.readlines(limit)
+    if num_lines is None:
+      with self.open() as _f:
+        yield _f.readlines()
+    else:
+      with self.open() as _f:
+        for _ in range(int(num_lines)):
+          yield next(_f).strip()
 
+  read_lines = _read_lines
   readlines = _read_lines
+  readline = _read_lines
 
   def _read_file(self, method=None):
     """Read the text from the file.
@@ -58,12 +65,18 @@ class EntityPath(Path):
     """
     if not self.is_file():
       raise ValueError(f"{self} is not a file.")
-    if not method is None:
+
+    if not method is None and callable(method):
       return method(str(self))
+
     return super().read_text()
 
   read_text = _read_file
   read = _read_file
+
+  @property
+  def text(self):
+    return self._read_file()
 
   def write_text(self, data, mode="a"):
     """Write the given text to the file."""
@@ -73,7 +86,7 @@ class EntityPath(Path):
     with self.open(mode) as _f:
       _f.write(data)
 
-    return self.exits()
+    return self.exists()
 
   write = write_text
 
@@ -83,8 +96,17 @@ class EntityPath(Path):
       raise ValueError(f"{self} is not a directory.")
     return [EntityPath(_f) for _f in self.iterdir() if _f.is_file()]
 
-  _files = list_files
-  files = list_files
+  @property
+  def files(self):
+    return self.list_files()
+
+  _files = files
+
+  @property
+  def dirs(self):
+    return self.list_dirs()
+
+  _dirs = dirs
 
   def list_dirs(self):
     """List all directories in the directory."""
@@ -92,17 +114,21 @@ class EntityPath(Path):
       raise ValueError(f"{self} is not a directory.")
     return [EntityPath(_d) for _d in self.iterdir() if _d.is_dir()]
 
-  dirs = list_dirs
-  _dirs = list_dirs
   folders = list_dirs
 
   def list_items(self):
     """List all items (files and directories) in the directory."""
     if not self.is_dir():
       raise ValueError(f"{self} is not a directory.")
+
     return [EntityPath(_i) for _i in self.iterdir()]
 
-  items = list_items
+  @property
+  def items(self):
+    return self.list_items()
+
+  entities = items
+  _all = items
 
   def delete(self):
     """Delete the file or directory."""

@@ -5,6 +5,7 @@ class ObjDict(dict):
     object.__setattr__(self, "__parent", kwargs.pop("__parent", None))
     object.__setattr__(self, "__key", kwargs.pop("__key", None))
     object.__setattr__(self, "__frozen", False)
+
     for arg in args:
       if not arg:
         continue
@@ -22,14 +23,15 @@ class ObjDict(dict):
 
   def __setattr__(self, name, value):
     if hasattr(self.__class__, name):
-      raise AttributeError(
-        "'ObjDict' object attribute " "'{0}' is read-only".format(name)
-      )
+      raise AttributeError(f"'ObjDict' object attribute '{name}' is read-only.")
     else:
       self[name] = value
 
   def __setitem__(self, name, value):
-    _is_frozen = hasattr(self, "__frozen") and object.__getattribute__(self, "__frozen")
+    try:
+      _is_frozen = hasattr(self, "__frozen") and object.__getattribute__(self, "__frozen")
+    except Exception as _e:
+      _is_frozen = False
 
     if _is_frozen and name not in super().keys():
       raise KeyError(name)
@@ -37,13 +39,14 @@ class ObjDict(dict):
     super().__setitem__(name, value)
 
     try:
-      p = object.__getattribute__(self, "__parent")
-      key = object.__getattribute__(self, "__key")
+      _p = object.__getattribute__(self, "__parent")
+      _key = object.__getattribute__(self, "__key")
     except AttributeError:
-      p = None
-      key = None
-    if p is not None:
-      p[key] = self
+      _p = None
+      _key = None
+
+    if _p is not None:
+      _p[_key] = self
       object.__delattr__(self, "__parent")
       object.__delattr__(self, "__key")
 
@@ -64,8 +67,8 @@ class ObjDict(dict):
       return type(item)(cls._hook(elem) for elem in item)
     return item
 
-  def __getattr__(self, item):
-    return self.__getitem__(item)
+  def __getattr__(self, key):
+    return self.__getitem__(key)
 
   def __missing__(self, name):
     if object.__getattribute__(self, "__frozen"):
@@ -103,27 +106,27 @@ class ObjDict(dict):
     return other
 
   def update(self, *args, **kwargs):
-    other = {}
+    _other = {}
     if args:
       if len(args) > 1:
         raise TypeError()
-      other.update(args[0])
-    other.update(kwargs)
-    for k, v in other.items():
+      _other.update(args[0])
+    _other.update(kwargs)
+    for _k, _v in _other.items():
       if (
-        (k not in self)
-        or (not isinstance(self[k], dict))
-        or (not isinstance(v, dict))
+        (_k not in self)
+        or (not isinstance(self[_k], dict))
+        or (not isinstance(_v, dict))
       ):
-        self[k] = v
+        self[_k] = _v
       else:
-        self[k].update(v)
+        self[_k].update(_v)
 
   def __getnewargs__(self):
     return tuple(self.items())
 
   def __getstate__(self):
-    return self
+    return self.__dict__.copy()
 
   def __setstate__(self, state):
     self.update(state)
@@ -131,16 +134,16 @@ class ObjDict(dict):
   def __or__(self, other):
     if not isinstance(other, (ObjDict, dict)):
       return NotImplemented
-    new = ObjDict(self)
-    new.update(other)
-    return new
+    _new = ObjDict(self)
+    _new.update(other)
+    return _new
 
   def __ror__(self, other):
     if not isinstance(other, (ObjDict, dict)):
       return NotImplemented
-    new = ObjDict(other)
-    new.update(self)
-    return new
+    _new = ObjDict(other)
+    _new.update(self)
+    return _new
 
   def __ior__(self, other):
     self.update(other)
@@ -149,9 +152,9 @@ class ObjDict(dict):
   def setdefault(self, key, default=None):
     if key in self:
       return self[key]
-    else:
-      self[key] = default
-      return default
+
+    self[key] = default
+    return default
 
   def freeze(self, shouldFreeze=True):
     object.__setattr__(self, "__frozen", shouldFreeze)
