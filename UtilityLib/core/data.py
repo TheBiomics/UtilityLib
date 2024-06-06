@@ -322,6 +322,54 @@ class DataUtility(FileSystemUtility):
     else:
       return None
 
+  _toml_default_include = True
+  _toml_exclude_private_keys = True
+
+  def _default_toml_str_func(self, data, *args, **kwargs):
+    return str(data), True
+
+  def recursive_map(self, data, func=None, key=None):
+    """Recusrively maps a function to values of Map or Iterables
+    Also handles filtering of values (except map)
+
+    :params func
+      return valid:
+        None (if nothing is returned will act as filter)
+        value
+        value, if_included (tuple with if value should be included or not)
+
+    """
+
+    if func is None or not callable(func):
+      func = self._default_toml_str_func
+
+    from collections.abc import Mapping, Iterable
+
+    if isinstance(data, Mapping):
+      _new_data = type(data)()
+      for _k, _v in data.items():
+
+        if self._toml_exclude_private_keys and isinstance(_k, (str)) and _k.startswith("_"):
+          continue
+
+        _new_val = self.recursive_map(_v, func, _k)
+
+        if not _new_val is None:
+          _new_data[_k] = _new_val
+
+      return _new_data
+    elif isinstance(data, (list, tuple)):
+      return type(data)(self.recursive_map(item, func, idx) for idx, item in enumerate(data) if item is not None)
+    elif isinstance(data, Iterable) and not isinstance(data, (str, bytes)):
+      return type(data)(self.recursive_map(item, func, key) for item in data)
+    else:
+      result = func(data, key)
+      if isinstance(result, tuple) and len(result) == 2:
+        new_value, include = result
+      else:
+        new_value, include = result, self._toml_default_include
+      return new_value if include else None
+
   @staticmethod
   def filter(*args, **kwargs):
     """

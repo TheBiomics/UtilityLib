@@ -1,6 +1,6 @@
 from warnings import warn as WARN
 from .db import DatabaseUtility
-from ..lib import EntityPath
+from ..lib import EntityPath, ObjDict
 
 class FileSystemUtility(DatabaseUtility):
   def __init__(self, *args, **kwargs):

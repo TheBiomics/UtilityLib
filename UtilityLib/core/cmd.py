@@ -60,12 +60,6 @@ class CommandUtility(LoggingUtility):
   call_command = cmd_call
   call_cmd = cmd_call
 
-  def cmd_run_mock(self, *args, **kwargs):
-    """Mocks cmd_run/cmd_call"""
-    return self.cmd_run('echo', *args, **kwargs)
-
-  cmd_dry_run = cmd_run_mock
-
   def cmd_run(self, *args, **kwargs):
     """
     Run a command and capture the output.
@@ -99,6 +93,13 @@ class CommandUtility(LoggingUtility):
 
   run_command = cmd_run
   run_cmd = cmd_run
+
+  def cmd_run_mock(self, *args, **kwargs):
+    """Mocks cmd_run/cmd_call"""
+    return self.cmd_run('echo', *args, **kwargs)
+
+  cmd_dry_run = cmd_run_mock
+  cmd_call_mock = cmd_run_mock
 
   def flatten_args(self, *args, **kwargs):
     _args = args[0] if len(args) > 0 else kwargs.get("mapping", [])
@@ -255,11 +256,11 @@ _.queue_final_callback
     self.task_queue.put((func, args, kwargs))
 
   def queue_timed_callback(self, callback=None, *args, **kwargs) -> None:
-    _cb_delay = kwargs.pop("cb_delay", 300)
+    _cb_interval = kwargs.pop("cb_interval", 300)
     if not callback is None and callable(callback):
       self.require('threading', 'Threading')
-      self.log_debug(f'Delegating a callback in {_cb_delay}s.')
-      self.Threading.Timer(_cb_delay, callback, args=args, kwargs=kwargs)
+      self.log_debug(f'Delegating a callback in {_cb_interval}s.')
+      self.Threading.Timer(_cb_interval, callback, args=args, kwargs=kwargs)
 
   def queue_final_callback(self, callback=None, *args, **kwargs) -> None:
     if not callback is None and callable(callback):
@@ -268,14 +269,14 @@ _.queue_final_callback
       _check_thread.start()
 
   def _queue_final_cb_fn_bg_exe(self, callback, *args, **kwargs) -> None:
-    _cb_delay = kwargs.pop("cb_delay", 60)
+    _cb_interval = kwargs.pop("cb_interval", 60)
     while True:
       _job_r, _job_p = self.queue_running, self.queue_pending
-      if all([_job_r > 0, _job_p > 0]):
-        self.log_debug(f'{_job_r} job(s) running and {_job_p} job(s) pending. Sleeping for {_cb_delay}s')
-        self.time_sleep(_cb_delay)
+      if any([_job_r > 0, _job_p > 0]):
+        self.log_debug(f'Job Status: {_job_r} running / {_job_p} pending. ~zZ {_cb_interval}s')
+        self.time_sleep(_cb_interval)
       else:
-        self.log_debug(f'Job Status: {self.config.jobs}. Executing final callback...')
+        self.log_debug(f'Job Status: All {self.queue_done} job(s) completed. Executing final callback...')
         callback(*args, **kwargs)
         break
 

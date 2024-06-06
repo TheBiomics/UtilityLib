@@ -2,7 +2,7 @@ from pathlib import Path
 
 class EntityPath(Path):
   _flavour = Path('.')._flavour
-  prevent_delete = True
+  force_delete = False
 
   def __new__(cls, *args, **kwargs):
     return super().__new__(cls, *args, **kwargs)
@@ -42,6 +42,66 @@ class EntityPath(Path):
 
   def ext(self):
     return "".join(self.suffixes)
+
+  _hash = None
+
+  @property
+  def hash(self):
+    if self._hash is None:
+      self._hash = self.get_hash()
+    return self._hash
+
+  def get_hash(self, algorithm='sha256'):
+    """Compute the hash of the file or directory using the specified algorithm.
+
+    :param algorithm: Hash algorithm to use ('md5', 'sha256', etc.)
+    :return: The computed hash as a hexadecimal string
+    """
+
+    if self.is_file():
+      self._hash = self._compute_file_hash(algorithm)
+    elif self.is_dir():
+      self._hash = self._compute_directory_hash(algorithm)
+    else:
+      self._hash = None
+      raise ValueError(f"{self} is neither a file nor a directory.")
+
+    return self._hash
+
+  def _compute_file_hash(self, algorithm):
+    """Helper method to compute the hash of a single file."""
+    import hashlib as _HL
+    _fn_hash = _HL.new(algorithm)
+
+    # Read the file in _chunks to avoid memory issues with large files
+    with self.open('rb') as _fh:
+      for _chunk in iter(lambda: _fh.read(4096), b""):
+        _fn_hash.update(_chunk)
+
+    self._hash = _fn_hash.hexdigest()
+    return self._hash
+
+  def _compute_directory_hash(self, algorithm):
+    """Helper method to compute the hash of a directory."""
+    import hashlib as _HL
+    _fn_hash = _HL.new(algorithm)
+
+    for _file_path in sorted(self.files):
+      # Update the hash with the file path relative to the directory
+      _rel_path = str(_file_path.relative_to(self)).encode()
+      _fn_hash.update(_rel_path)
+
+      # Update the hash with the file content
+      with _file_path.open('rb') as _fh:
+        for _chunk in iter(lambda: _fh.read(4096), b""):
+          _fn_hash.update(_chunk)
+
+    # Update hash with directory names
+    for _dir in sorted(self.dirs):
+      _fn_hash.update(_dir.name.encode())
+
+    self._hash = _fn_hash.hexdigest()
+    return self._hash
 
   def _read_lines(self, num_lines=None):
     if not self.is_file():
@@ -130,13 +190,16 @@ class EntityPath(Path):
   entities = items
   _all = items
 
-  def delete(self):
+  def delete(self, force_delete=False):
+    self.force_delete = force_delete
+
     """Delete the file or directory."""
-    if self.prevent_delete:
-      raise ValueError(f"{self} has prevent_lock attribute to prevent accidental deletion so cannot be deleted.")
+    if not self.force_delete:
+      raise ValueError(f"{self} is not safe to delete. pass force_delete=True enable accidental deletion.")
 
     if self.is_file():
       self.unlink()
+      return self.exists()
     elif self.is_dir():
       for _item in self.iterdir():
         if _item.is_dir():
@@ -144,6 +207,10 @@ class EntityPath(Path):
         else:
           _item.unlink()
       self.rmdir()
+      return self.exists()
+    elif not self.exists():
+      # already deleted or didn't exist
+      return self.exists()
     else:
       raise ValueError(f"{self} is neither a file nor a directory.")
 
@@ -161,7 +228,7 @@ class EntityPath(Path):
 
   def move(self, destination):
     """Move the file or directory to a new location."""
-    if self.prevent_delete:
+    if self.force_delete:
       return
 
     destination = EntityPath(destination)
@@ -205,20 +272,29 @@ class EntityPath(Path):
   def search(self, pattern="**"):
     return self.glob(pattern)
 
-  def size(self, converter=None):
+  def get_size(self, converter=None):
     """Return the size of the file or directory."""
-    _size = None
+
     if self.is_file():
-      _size = self.stat().st_size
+      self._size = self.stat().st_size
     elif self.is_dir():
-      _size = sum(f.stat().st_size for f in self.rglob('*') if f.is_file())
+      self._size = sum(f.stat().st_size for f in self.rglob('*') if f.is_file())
     else:
       raise ValueError(f"{self} is neither a file nor a directory.")
 
     if not converter is None and callable(converter):
-      return converter(_size)
+      return converter(self._size)
 
-    return _size
+    return self._size
+
+  _size = None
+
+  @property
+  def size(self):
+    if self._size is None:
+      self._size = self.get_size()
+
+    return self._size
 
   def parent(self, level=0):
     """Return the parent directory."""

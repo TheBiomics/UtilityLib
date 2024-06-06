@@ -1,10 +1,10 @@
 from .utility import UtilityManager
-from .lib import ObjDict
+from .lib import ObjDict, EntityPath
 
 class ProjectManager(UtilityManager):
   name = "project"
-  version = 1
-  subversion = 20240400
+  config_version = 1
+  config_subversion = 20240600
   path_config = None
 
   def __init__(self, *args, **kwargs):
@@ -13,31 +13,80 @@ class ProjectManager(UtilityManager):
     super().__init__(**self.__defaults)
     self.load_config()
 
+  def _toml_map_from_str(self, data):
+    if isinstance(data, dict):
+      data = {k: self._toml_map_from_str(v) for k, v in data.items()}
+    elif isinstance(data, list):
+      data = [self._toml_map_from_str(v) for v in data]
+    elif data == "":
+      data = None
+
+    return data
+
+  toml_path = "~/UtilityLib-Project.toml"
+  toml_data = ObjDict()
+
+  def read_toml(self, *args, **kwargs):
+    """Reads .toml file content and parses into dict"""
+    self.toml_path = kwargs.get('toml_path', args[0] if len(args) > 0 else self.toml_path)
+    self.toml_path = EntityPath(self.toml_path)
+
+    if self.toml_path.exists() and self.require('toml', 'TOML'):
+      _raw = self.TOML.load(self.toml_path)
+      self.toml_data = ObjDict(self._toml_map_from_str(_raw))
+
+    return self.toml_data
+
+  def _default_toml_str_func(self, data, *args, **kwargs):
+    if data is None:
+      return None
+
+    return str(data)
+
+  def convert_to_toml_obj(self, data={}) -> str:
+    _toml_str = ""
+    if data and self.require('toml', 'TOML'):
+      self.log_debug('Dumping TOML data')
+      _toml_str = self.recursive_map(data)
+      _toml_str = self.TOML.dumps(_toml_str)
+
+    return _toml_str
+
   def write_toml(self, *args, **kwargs):
-    """Write configuration in readable format"""
-    # import toml
-    # _config = toml.dumps(self.config)
+    """Writes given object to the provided path"""
+    self.toml_path = kwargs.get('toml_path', args[0] if len(args) > 0 else self.toml_path)
+    self.toml_data = kwargs.get('toml_data', args[1] if len(args) > 1 else self.toml_data)
+    self.toml_path = EntityPath(self.toml_path)
+
+    _toml_str = self.convert_to_toml_obj(self.toml_data)
+
+    if self.toml_path.exists():
+      self.log_debug('Overwriting TOML config.')
+
+    self.toml_path.write(_toml_str)
+    return self.toml_path.exists()
 
   def set_config_path(self, *args, **kwargs):
-    self.update_attributes(self, kwargs, self.__defaults)
-    self.path_config = (
-      f"{self.path_base}/{self.name}.v{self.version}.{self.subversion}.config.gz"
-    )
+    self.update_attributes(self, kwargs)
+    self.path_config = (self.path_base / self.name).with_suffix(f".v{self.config_version}.{self.config_subversion}.config.gz")
 
   def rebuild_config(self, *args, **kwargs):
+    self.update_attributes(self, kwargs)
     """Read config again"""
     setattr(self, self.config_key, self.ConfigManager(getattr(self, self.config_key, ObjDict())))
 
   def reset_config(self, *args, **kwargs):
-    self.update_attributes(self, kwargs, self.__defaults)
+    self.update_attributes(self, kwargs)
     return self.load_config(**kwargs)
 
   def load_config(self, *args, **kwargs):
+    self.update_attributes(self, kwargs)
     if not getattr(self, 'path_config'):
       self.set_config_path()
 
     self.ConfigManager = ObjDict
     setattr(self, self.config_key, self.ConfigManager())
+
     if self.check_path(self.path_config):
       setattr(self, self.config_key, self.unpickle(self.path_config))
 
@@ -47,7 +96,7 @@ class ProjectManager(UtilityManager):
     return self.update_config(*args, **kwargs)
 
   def update_config(self, *args, **kwargs):
-    self.update_attributes(self, kwargs, self.__defaults)
+    self.update_attributes(self, kwargs)
     self.set_config_path()
     self.rebuild_config()
 
@@ -98,9 +147,3 @@ class ProjectManager(UtilityManager):
   func_on_file = _apply_method_to_file
   file_func = _apply_method_to_file
   op_file = _apply_method_to_file
-
-  def get_file(self, *args, **kwargs):
-    ...
-
-  def get_dir(self, *args, **kwargs):
-    ...
