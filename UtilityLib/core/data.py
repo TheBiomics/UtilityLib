@@ -65,13 +65,15 @@ class DataUtility(FileSystemUtility):
   def _loop_with_progress_bar(self, *args, **kwargs):
     _items = kwargs.pop('items', args[0] if len(args) > 0 else [])
     _desc = kwargs.pop('desc', args[1] if len(args) > 1 else "Item")
-    _desc_key = kwargs.pop('desc_key', args[2] if len(args) > 2 else None)
+    _desc_fn = kwargs.pop('desc_fn', args[2] if len(args) > 2 else None)
 
     with self.TQDM(_items, **kwargs) as _pb:
       self._loop_obj = _pb
       for _i in _items:
-        _desc_label = _i if _desc_key is None else _i[_desc_key]
-        _pb.desc = f"{_desc} {_desc_label}"
+        if callable(_desc_fn):
+          _pb.desc = _desc_fn(_i)
+        else:
+          _pb.desc = f"{_desc} {_i}"
         _pb.update(1)
         yield _i
 

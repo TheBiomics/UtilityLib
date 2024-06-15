@@ -71,8 +71,15 @@ class ObjDict(dict):
     return self.__getitem__(key)
 
   def __missing__(self, name):
+    try:
+      _is_frozen = hasattr(self, "__frozen") and object.__getattribute__(self, "__frozen")
+    except Exception as _e:
+      _is_frozen = False
+
+    # if _is_frozen:
     if object.__getattribute__(self, "__frozen"):
       raise KeyError(name)
+
     return self.__class__(__parent=self, __key=name)
 
   def __delattr__(self, name):

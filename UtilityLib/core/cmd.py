@@ -1,6 +1,6 @@
 from functools import lru_cache as CacheMethod
 from contextlib import contextmanager
-
+from ..lib import EntityPath
 from .log import LoggingUtility
 
 class CommandUtility(LoggingUtility):
@@ -30,7 +30,7 @@ class CommandUtility(LoggingUtility):
     _command = list(args)
 
     for _key, _value in kwargs.items():
-      _command.append(f"-{_key}")
+      _command.append(f"{_key}")
       if isinstance(_value, (list, tuple, set)):
         _command.extend(list(_value))
       else:
@@ -47,14 +47,15 @@ class CommandUtility(LoggingUtility):
     """
     _cwd = kwargs.pop('cwd', None)
     _command = self._format_command(*args, **kwargs)
+    _command_str = ' '.join(_command)
 
     self.require('subprocess', 'SubProcess')
     try:
-      self.log_debug(f"Calling command: {_command}")
+      self.log_debug(f"Calling command: {_command_str}")
       _result = self.SubProcess.call(_command, cwd=_cwd)
       return _result
     except Exception as _e:
-      self.log_error(f"Command '{_command}' failed with error: {_e}")
+      self.log_error(f"Command '{_command_str}' failed with error: {_e}")
       return None
 
   call_command = cmd_call
@@ -72,23 +73,26 @@ class CommandUtility(LoggingUtility):
     _newlines = kwargs.pop('newlines', True)
     _cwd = kwargs.pop('cwd', None)
     _command = self._format_command(*args, **kwargs)
+    _command_str = ' '.join(_command)
 
     self.require('subprocess', 'SubProcess')
 
     try:
-      self.log_debug(f"Running command: {_command}")
+      self.log_debug(f"Running command: {_command_str}")
       _result = self.SubProcess.run(
           _command,
           stdout=self.SubProcess.PIPE,
           stderr=self.SubProcess.PIPE,
           universal_newlines=_newlines,
           cwd=_cwd,
-          check=True
+          check=True,
+          shell=True,
+          text=True
       )
       self.log_debug(f"Command output: {_result.stdout}")
       return _result.stdout
     except self.SubProcess.CalledProcessError as _e:
-      self.log_error(f"Command '{_command}' failed with error: {_e.stderr}")
+      self.log_error(f"Command '{_command_str}' failed with error: {_e.stderr}")
       return None
 
   run_command = cmd_run
@@ -100,6 +104,7 @@ class CommandUtility(LoggingUtility):
 
   cmd_dry_run = cmd_run_mock
   cmd_call_mock = cmd_run_mock
+  cmd_call_echo = cmd_run_mock
 
   def flatten_args(self, *args, **kwargs):
     _args = args[0] if len(args) > 0 else kwargs.get("mapping", [])

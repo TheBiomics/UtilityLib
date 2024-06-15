@@ -216,7 +216,10 @@ class FileSystemUtility(DatabaseUtility):
 
     _file = args[0] if len(args) > 0 else kwargs.get("file")
     _processor_line = args[1] if len(args) > 1 else kwargs.get("processor_line")
+
     self.count_lines = self.count_lines if hasattr(self, "count_lines") else self.skip_rows
+
+    _processor_line = _processor_line if callable(_processor_line) else None
 
     self.require("gzip", "GZip")
     _result = True
@@ -231,6 +234,45 @@ class FileSystemUtility(DatabaseUtility):
           yield _processor_line(_line) if _processor_line else _line
 
     return _result
+
+  def _get_fh_blocks(self, file_handle, size=65536):
+    """Yields blocks from file handle"""
+    while True:
+      _b = file_handle.read(size)
+      if not _b: break
+      yield _b
+
+  def count_file_lines(self, *args, **kwargs):
+    """Quickly counts lines in a file or gz file
+    @stats: counts lines in a 7GB gz file in 2min
+    """
+    _file_path = kwargs.get('path_file', args[0] if len(args) > 0 else None)
+
+    # To bypass Pathlib open method call
+    _file_path = str(_file_path.resolve())
+
+    # Fall back
+    _args = [_file_path, "r"]
+    _kwargs = {
+      "encoding": "utf-8",
+      "errors": "ignore",
+    }
+    _read_method = open
+
+    # If gz compressed
+
+    if str(_file_path).endswith('.gz'):
+      self.require('gzip', 'GZip')
+      _read_method = self.GZip.open
+      _args = [_file_path, "rt"]
+      _kwargs = {}
+
+    _num_lines = None
+    with _read_method(*_args, **_kwargs) as _fh:
+      _num_lines = sum(_bl.count("\n") for _bl in self._get_fh_blocks(_fh))
+
+    return _num_lines
+
 
   def _uncompress_archive(self, *args, **kwargs):
     """Unpack archive like .zip, .gz, .tar

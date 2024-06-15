@@ -40,6 +40,18 @@ class EntityPath(Path):
     Path.parts
     """
 
+  _is_gz = None
+
+  @property
+  def is_gz(self):
+    if self._is_gz is None:
+      self._is_gz = '.gz' in self.suffixes
+
+    return self._is_gz
+
+  is_compressed = is_gz
+
+  @property
   def ext(self):
     return "".join(self.suffixes)
 
@@ -107,13 +119,19 @@ class EntityPath(Path):
     if not self.is_file():
       raise ValueError(f"{self} is not a file.")
 
-    if num_lines is None:
-      with self.open() as _f:
-        yield _f.readlines()
-    else:
-      with self.open() as _f:
-        for _ in range(int(num_lines)):
-          yield next(_f).strip()
+    try:
+      if num_lines is None:
+        with self.open() as _f:
+          for _line in _f:
+              yield _line
+      else:
+        with self.open() as _f:
+          for _ in range(int(num_lines)):
+            yield next(_f).strip()
+    except StopIteration:
+        pass
+    except:
+      raise Exception('Some unknown error occurred.')
 
   read_lines = _read_lines
   readlines = _read_lines
@@ -150,11 +168,20 @@ class EntityPath(Path):
 
   write = write_text
 
-  def list_files(self):
+  def list_files(self, relative=True):
     """List all files in the directory."""
     if not self.is_dir():
       raise ValueError(f"{self} is not a directory.")
-    return [EntityPath(_f) for _f in self.iterdir() if _f.is_file()]
+
+    _files = []
+    for _f in self.iterdir():
+      if _f.is_file():
+        _fp = EntityPath(_f)
+        if relative == True:
+          _fp = _fp.rel_path() # Relative to cwd
+        _files.append(_fp)
+
+    return _files
 
   @property
   def files(self):
@@ -190,8 +217,8 @@ class EntityPath(Path):
   entities = items
   _all = items
 
-  def delete(self, force_delete=False):
-    self.force_delete = force_delete
+  def delete(self, force_delete=None):
+    self.force_delete = force_delete or self.force_delete
 
     """Delete the file or directory."""
     if not self.force_delete:
@@ -203,7 +230,7 @@ class EntityPath(Path):
     elif self.is_dir():
       for _item in self.iterdir():
         if _item.is_dir():
-          EntityPath(_item).delete()
+          EntityPath(_item).delete(force_delete=self.force_delete)
         else:
           _item.unlink()
       self.rmdir()
@@ -300,13 +327,14 @@ class EntityPath(Path):
     """Return the parent directory."""
     return EntityPath(self.parents[level])
 
+  @property
   def full_path(self):
     """Return the absolute path."""
     return str(self.resolve())
 
   def rel_path(self, _path=None):
     """Return the relative path from the current working directory."""
-    return str(self.relative_to(_path or Path.cwd()))
+    return self.relative_to(_path or Path.cwd())
 
   def has(self, file=None):
     """Case sensitive check if pattern (e.g., **/file.txt; *ile.tx*) exists"""
