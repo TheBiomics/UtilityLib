@@ -129,9 +129,9 @@ class EntityPath(Path):
           for _ in range(int(num_lines)):
             yield next(_f).strip()
     except StopIteration:
-        pass
-    except:
-      raise Exception('Some unknown error occurred.')
+      pass
+    except Exception as _e:
+      raise Exception(f'Some unknown error occurred.: {_e}')
 
   read_lines = _read_lines
   readlines = _read_lines
@@ -284,6 +284,13 @@ class EntityPath(Path):
 
     return destination
 
+  def get_match(self, pattern="*txt"):
+    if not '*' in pattern:
+      pattern = f"*{pattern}*"
+
+    _files = list(self.search(pattern))
+    return _files[0] if len(_files) > 0 else None
+
   def exists(self):
     """Check if the path exists."""
     return super().exists()
@@ -334,7 +341,10 @@ class EntityPath(Path):
 
   def rel_path(self, _path=None):
     """Return the relative path from the current working directory."""
-    return self.relative_to(_path or Path.cwd())
+    try:
+      return (self).resolve().relative_to(_path or Path.cwd())
+    except:
+      return self
 
   def has(self, file=None):
     """Case sensitive check if pattern (e.g., **/file.txt; *ile.tx*) exists"""

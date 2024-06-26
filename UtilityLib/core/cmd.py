@@ -70,25 +70,28 @@ class CommandUtility(LoggingUtility):
     :return: The output of the command.
     """
 
-    _newlines = kwargs.pop('newlines', True)
-    _cwd = kwargs.pop('cwd', None)
+    self.require('subprocess', 'SubProcess')
+
+    _cmd_params = kwargs.pop('cmd_params', {
+          "universal_newlines": kwargs.pop('newlines', True),
+          "cwd": kwargs.pop('cwd', None),
+          "check": kwargs.pop('check', None),
+          "shell": kwargs.pop('shell', None),
+          "capture_output": kwargs.pop('text', True),
+          "text": kwargs.pop('text', None),
+        })
+
+    if not isinstance(_cmd_params, (dict)):
+      _cmd_params = dict()
+    else:
+      _cmd_params = {_k: _v for _k, _v in _cmd_params.items() if _v is not None}
+
     _command = self._format_command(*args, **kwargs)
     _command_str = ' '.join(_command)
 
-    self.require('subprocess', 'SubProcess')
-
     try:
       self.log_debug(f"Running command: {_command_str}")
-      _result = self.SubProcess.run(
-          _command,
-          stdout=self.SubProcess.PIPE,
-          stderr=self.SubProcess.PIPE,
-          universal_newlines=_newlines,
-          cwd=_cwd,
-          check=True,
-          shell=True,
-          text=True
-      )
+      _result = self.SubProcess.run(_command, **_cmd_params)
       self.log_debug(f"Command output: {_result.stdout}")
       return _result.stdout
     except self.SubProcess.CalledProcessError as _e:

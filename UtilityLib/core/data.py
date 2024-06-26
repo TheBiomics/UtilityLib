@@ -70,10 +70,7 @@ class DataUtility(FileSystemUtility):
     with self.TQDM(_items, **kwargs) as _pb:
       self._loop_obj = _pb
       for _i in _items:
-        if callable(_desc_fn):
-          _pb.desc = _desc_fn(_i)
-        else:
-          _pb.desc = f"{_desc} {_i}"
+        _pb.desc = _desc_fn(_i) if callable(_desc_fn) else f"{_desc} {_i}"
         _pb.update(1)
         yield _i
 

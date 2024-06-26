@@ -68,7 +68,14 @@ class ObjDict(dict):
     return item
 
   def __getattr__(self, key):
-    return self.__getitem__(key)
+    if key not in self:
+      self[key] = ObjDict()
+    return self[key]
+
+  def __getitem__(self, key):
+    if key not in self:
+      self[key] = ObjDict()
+    return super().__getitem__(key)
 
   def __missing__(self, name):
     try:
