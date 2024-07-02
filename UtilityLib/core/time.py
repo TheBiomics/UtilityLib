@@ -13,8 +13,20 @@ class TimeUtility(BaseUtility):
     self.pinned_time = self.TIME.time()
     return self.pinned_time
 
-  def time_stamp(self, *args, **kwargs):
-    _format = args[0] if len(args) > 0 else kwargs.get("format", '%Y%m%d%H%M%S')
+  @property
+  def time_stamp(self):
+    return self.get_dt_stamp()
+
+  timestamp = time_stamp
+
+  @property
+  def date_stamp(self):
+    return self.get_dt_stamp(format='%Y%m%d')
+
+  datestamp = date_stamp
+
+  def get_dt_stamp(self, *args, **kwargs):
+    _format = kwargs.get("format", args[0] if len(args) > 0 else '%Y%m%d%H%M%S')
     from datetime import datetime as DATE_PROVIDER
     return DATE_PROVIDER.today().strftime(_format)
 

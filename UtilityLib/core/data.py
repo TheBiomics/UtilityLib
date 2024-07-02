@@ -271,6 +271,14 @@ class DataUtility(FileSystemUtility):
   pd_csv = _csv_file_to_DF
   read_csv = _csv_file_to_DF
 
+  def pd_sql_table(self, *args, **kwargs):
+    _table_name = kwargs.pop('table_name', args[0] if len(args) > 0 else None)
+    _engine = kwargs.pop('engine', args[1] if len(args) > 1 else self.engine)
+    if _table_name and _engine and self.require('pandas', 'PD'):
+      return self.PD.read_sql_table(_table_name, _engine, **kwargs)
+
+    return None
+
   def _tsv_file_to_DF(self, *args, **kwargs):
     """Read tab delimited value file and convert to Pandas DataFrame"""
     kwargs['sep'] = "\t"

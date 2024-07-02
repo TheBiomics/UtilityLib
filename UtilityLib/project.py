@@ -1,5 +1,6 @@
 from .utility import UtilityManager
-from .lib import ObjDict, EntityPath
+from .lib.obj import ObjDict
+from .lib.entity import EntityPath
 
 class ProjectManager(UtilityManager):
   name = "project"
@@ -68,7 +69,7 @@ class ProjectManager(UtilityManager):
 
   def set_config_path(self, *args, **kwargs):
     self.update_attributes(self, kwargs)
-    self.path_config = (self.path_base / self.name).with_suffix(f".v{self.config_version}.{self.config_subversion}.config.gz")
+    self.path_config = (EntityPath(self.path_base) / self.name).with_suffix(f".v{self.config_version}.{self.config_subversion}.config.gz")
 
   def rebuild_config(self, *args, **kwargs):
     self.update_attributes(self, kwargs)
@@ -101,14 +102,14 @@ class ProjectManager(UtilityManager):
     self.rebuild_config()
 
     _config = getattr(self, self.config_key, ObjDict())
-    _config.last_updated = self.time_stamp()
+    _config.last_updated = self.timestamp
     self.pickle(self.path_config, _config)
 
   def get_path(self, *args, **kwargs):
     _relative_path = args[0] if len(args) > 0 else kwargs.get("path", "")
     _fp = str(_relative_path).lstrip('/')
     if not self.path_base is None:
-      _fp = self.path_base / _fp
+      _fp = EntityPath(self.path_base) / _fp
     return _fp
 
   def get_join(self, *args, **kwargs):

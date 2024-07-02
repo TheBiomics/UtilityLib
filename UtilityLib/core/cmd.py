@@ -1,6 +1,6 @@
 from functools import lru_cache as CacheMethod
 from contextlib import contextmanager
-from ..lib import EntityPath
+from ..lib.entity import EntityPath
 from .log import LoggingUtility
 
 class CommandUtility(LoggingUtility):

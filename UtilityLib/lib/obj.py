@@ -50,6 +50,10 @@ class ObjDict(dict):
       object.__delattr__(self, "__parent")
       object.__delattr__(self, "__key")
 
+  @property
+  def _keys(self):
+    return [_k for _k in self.keys() if not _k.startswith('_')]
+
   def __add__(self, other):
     if not self.keys():
       return other

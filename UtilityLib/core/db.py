@@ -1,4 +1,5 @@
 from .cmd import CommandUtility
+from ..lib.obj import ObjDict
 
 class DatabaseUtility(CommandUtility):
   def __init__(self, *args, **kwargs):
@@ -10,14 +11,21 @@ class DatabaseUtility(CommandUtility):
     self.__defaults.update(kwargs)
     super().__init__(**self.__defaults)
 
+  _table_info = None
   def set_table_info(self, *args, **kwargs):
     try:
       from sqlalchemy import MetaData
       _md = MetaData()
       _md.reflect(bind=self.engine)
-      self.tables = dict(_md.tables)
+      self._table_info = ObjDict(_md.tables)
     except:
       pass
+
+  @property
+  def tables(self):
+    if self._table_info is None:
+      self.set_table_info()
+    return self._table_info
 
   def connect_mysql(self, *args, **kwargs):
     # My SQL Connection
@@ -34,7 +42,6 @@ class DatabaseUtility(CommandUtility):
     if self.engine is None and self.db_user is not None and self.db_name is not None:
       from sqlalchemy import create_engine
       self.engine = create_engine("mysql+pymysql://" + self.db_user + ":" + self.db_password + "@" + self.db_host + "/" + self.db_name)
-      self.set_table_info()
     return self.engine
 
   def connect_sqlite(self, *args, **kwargs):
@@ -43,7 +50,7 @@ class DatabaseUtility(CommandUtility):
     if self.is_connected:
       return self.db_path
 
-    if all([hasattr(self, 'db_path'), getattr(self, 'db_path'), len(self.db_path or "") > 3]):
+    try:
       from sqlalchemy import create_engine
 
       if self.OS.name == "nt":
@@ -51,12 +58,12 @@ class DatabaseUtility(CommandUtility):
       else:
         self.engine = create_engine(f"sqlite:////{self.db_path}")
 
-      self.set_table_info()
-
       self.is_connected = True
       return self.db_path
-    else:
-      raise Exception("Failed to connect to SQLite DB.")
+    except Exception as _e:
+      print(f"Failed to connect to SQLite DB: {_e}")
+
+    return False
 
   def db_connect(self, *args, **kwargs):
     self.update_attributes(self, kwargs)
@@ -122,6 +129,7 @@ class DatabaseUtility(CommandUtility):
     _data = args[0] if len(args) > 0 else kwargs.get("data")
     _column_details = args[1] if len(args) > 1 else kwargs.get("column_details")
 
+    self.require('pandas', 'PD')
     if all([isinstance(_data, self.PD.DataFrame), _column_details, isinstance(_column_details, dict)]):
       for _key, _type in _column_details.items():
         if _key in _data.columns:
@@ -151,6 +159,7 @@ class DatabaseUtility(CommandUtility):
       return _db_entries
 
     try:
+      self.require('pandas', 'PD')
       if _where and isinstance(_where, dict):
         _where_clause = ""
         for _key in _where.keys():
@@ -165,8 +174,8 @@ class DatabaseUtility(CommandUtility):
         _db_entries = self.PD.read_sql(f"SELECT * FROM {_table} WHERE {_where_clause}", _db_engine)
       else:
         _db_entries = self.PD.read_sql_table(_table, _db_engine)
-    except:
-      self.log_info(f"Some error occurred while accessing table '{_table}'.")
+    except Exception as _e:
+      self.log_info(f"Some error occurred while accessing table '{_table}': {_e}")
 
     _db_entries = self.__correct_table_type(_db_entries, **kwargs)
     return _db_entries
@@ -208,6 +217,6 @@ class DatabaseUtility(CommandUtility):
 
     return self.query_last_result
 
-  query = _query_database
+  sql_query = _query_database
   query_db = _query_database
   query_datbase = _query_database

@@ -1,6 +1,5 @@
 from .__metadata__ import __version__, __description__, __build__, __name__
 
-from .lib.obj import ObjDict, DotDict
 from .office import OfficeManager
 from .utility import UtilityManager
 from .project import ProjectManager

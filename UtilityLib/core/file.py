@@ -1,6 +1,6 @@
-from warnings import warn as WARN
 from .db import DatabaseUtility
-from ..lib import EntityPath, ObjDict
+from ..lib.obj import ObjDict
+from ..lib.entity import EntityPath
 
 class FileSystemUtility(DatabaseUtility):
   def __init__(self, *args, **kwargs):
@@ -13,7 +13,7 @@ class FileSystemUtility(DatabaseUtility):
   def backup(self, *args, **kwargs):
     _file = args[0] if len(args) > 0 else kwargs.get("file")
     _ext = self.ext(_file)
-    _copy_name = self.change_ext(self.time_stamp() + f".{_ext}")
+    _copy_name = self.change_ext(self.timestamp + f".{_ext}")
     return self.copy(_file, _copy_name)
 
   def rename(self, *args, **kwargs):
@@ -282,8 +282,14 @@ class FileSystemUtility(DatabaseUtility):
     1|destination : /mnt/data/drive/downloads
 
     """
-    _source = args[0] if len(args) > 0 else kwargs.get("source")
-    _destination = args[1] if len(args) > 1 else kwargs.get("destination", self.file_dir(_source))
+    _source = kwargs.get("source", args[0] if len(args) > 0 else None)
+
+    if _source is None:
+      return None
+
+    _source = EntityPath(_source)
+
+    _destination = args[1] if len(args) > 1 else kwargs.get("destination", _source.parent() / _source.stem)
 
     self.validate_dir(_destination)
 
@@ -417,11 +423,11 @@ class FileSystemUtility(DatabaseUtility):
   from_html = read_html
 
   def read_xml(self, *args, **kwargs):
-    _source = args[0] if len(args) > 0 else kwargs.get("source")
+    _source = kwargs.get("source", args[0] if len(args) > 0 else None)
     _content = ""
 
-    from lxml import etree as XMLTree
     if self.check_path(_source):
+      from lxml import etree as XMLTree
       _tree = XMLTree.parse(_source)
       _content = _tree.getroot()
     _content = self.xml_to_dict(_content)
@@ -601,8 +607,10 @@ class FileSystemUtility(DatabaseUtility):
       @returns
       True|False if file path exists
     """
-    _destination = args[0] if len(args) > 0 else kwargs.get("destination")
-    _content = args[1] if len(args) > 1 else kwargs.get("content")
+    _destination = kwargs.get("destination", args[0] if len(args) > 0 else None)
+    _content = kwargs.get("content", args[1] if len(args) > 1 else None)
+    _encoding = kwargs.pop("encoding", args[2] if len(args) > 2 else None)
+    kwargs['encoding'] = _encoding
     self.write(_destination, _content, **kwargs)
     return self.check_path(_destination)
 
@@ -614,15 +622,16 @@ class FileSystemUtility(DatabaseUtility):
       @returns
       dict of the converted xml
     """
-    _data = args[0] if len(args) > 0 else kwargs.get("data")
+    _data = kwargs.get("data", args[0] if len(args) > 0 else "")
     _res = {}
 
-    self.require("xmltodict", "XMLTODICT")
-    from lxml import etree as XMLTree
-
     try:
+      self.require("xmltodict", "XMLTODICT")
+      from lxml import etree as XMLTree
+
       if not isinstance(_data, (str)):
         _data = XMLTree.tostring(_data, encoding='utf8', method='xml')
+
       _res = self.JSON.loads(self.JSON.dumps(self.XMLTODICT.parse(_data)))
     except:
       self.log_info(f"Failed to convert XML to DICT. Some error occurred.")
@@ -1018,21 +1027,22 @@ class FileSystemUtility(DatabaseUtility):
   validate_path = validate_dir
 
   def change_ext(self, *args, **kwargs):
-    _fp = args[0] if len(args) > 0 else kwargs.get("path")
-    _to = args[1] if len(args) > 1 else kwargs.get("to")
-    _from = args[2] if len(args) > 2 else kwargs.get("from")
-    _num_ext = args[3] if len(args) > 3 else kwargs.get("num_ext", 1)
+    _path = kwargs.get("path", args[0] if len(args) > 0 else None)
+    _to = kwargs.get("to", args[1] if len(args) > 1 else None)
+    _from = kwargs.get("from", args[2] if len(args) > 2 else None)
+    _num_ext = kwargs.get("num_ext", args[3] if len(args) > 3 else 1)
 
-    _current_ext = self.ext(_fp, _num_ext)
+    _path = str(_path)
+    _current_ext = self.ext(_path, _num_ext)
 
     if _from is not None:
       if _current_ext == _from:
-        _f_wo_ext = self.file_name(_fp, with_dir = True, num_ext = _num_ext)
+        _f_wo_ext = self.file_name(_path, with_dir = True, num_ext = _num_ext)
       else:
-        WARN("From and Current extensions are not same.")
-        return _fp
+        self.log_error("Method change_ext: From and Current extensions are not same.")
+        return _path
     else:
-      _f_wo_ext = self.file_name(_fp, with_dir = True, num_ext = _num_ext)
+      _f_wo_ext = self.file_name(_path, with_dir = True, num_ext = _num_ext)
 
     return ".".join((_f_wo_ext, _to))
 
