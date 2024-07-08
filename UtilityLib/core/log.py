@@ -1,5 +1,6 @@
 from .time import TimeUtility
 import logging as _Logging
+from ..lib.entity import EntityPath
 
 class _ColoredFormatter(_Logging.Formatter):
   BLACK = '\x1b[30m'
@@ -87,7 +88,7 @@ class LoggingUtility(TimeUtility):
     """Logging Setup"""
 
     if self.log_file_path is None:
-      self.log_file_path = self.log_file_name
+      self.log_file_path = EntityPath(self.log_file_name)
 
     if not any([self.log_to_console, self.log_to_file]):
       return

@@ -395,7 +395,7 @@ class FileSystemUtility(DatabaseUtility):
     _default = args[1] if len(args) > 1 else kwargs.get("default", None)
     _flag_compressed = args[2] if len(args) > 2 else kwargs.get("flag_compressed", True)
 
-    if self.check_path(_source) and self.require('cPickle', "PICKLE", "pickle"):
+    if self.check_path(_source) and self.require('pickle', "PICKLE", "pickle"):
       if _flag_compressed and self.require("gzip", "GZip"):
         with self.GZip.open(_source, 'rb') as _fh:
           _default = self.PICKLE.load(_fh)

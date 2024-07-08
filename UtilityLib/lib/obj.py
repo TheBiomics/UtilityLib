@@ -156,16 +156,9 @@ class ObjDict(dict):
     _new.update(other)
     return _new
 
-  def __ror__(self, other):
-    if not isinstance(other, (ObjDict, dict)):
-      return NotImplemented
-    _new = ObjDict(other)
-    _new.update(self)
-    return _new
-
-  def __ior__(self, other):
-    self.update(other)
-    return self
+  __and__ = __or__
+  __ror__ = __or__
+  __ior__ = __or__
 
   def setdefault(self, key, default=None):
     if key in self:
@@ -182,6 +175,19 @@ class ObjDict(dict):
 
   def unfreeze(self):
     self.freeze(False)
+
+  def items(self):
+    """Return items, excluding those with keys starting with an underscore."""
+    return ((_k, _v) for _k, _v in super().items() if not _k.startswith('_'))
+
+  def values(self):
+    """Return values, excluding those associated with keys starting with an underscore."""
+    return (_v for _, _v in self.items())
+
+  def __repr__(self):
+    """Custom representation of the dictionary, excluding private keys."""
+    _item_string = ",\n".join([f"  {_k}: {_v}" for _k, _v in self.items()])
+    return f"{self.__class__.__name__}(\n{_item_string}\n)"
 
 # Backward compatibility
 Dict = ObjDict

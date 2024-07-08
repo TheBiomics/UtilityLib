@@ -20,7 +20,6 @@ class BaseUtility:
   os_type = None
   is_windows = None
   is_linux = None
-  path_base = None
 
   _messages_to_log = [] # [{type:..., text:..., time:...}]
 
@@ -31,31 +30,46 @@ class BaseUtility:
     __defaults.update(kwargs)
     self._set_os_type(**__defaults)
     self.update_attributes(self, __defaults)
-    self._set_base_path(**__defaults)
+    # self._set_working_dir(**__defaults)
 
-  def _set_base_path(self, *args, **kwargs):
-    if getattr(self, 'path_base'):
-      self.path_base = EntityPath(getattr(self, 'path_base'))
-    elif hasattr(self, 'path_bases'):
-      self.set_project_paths(path_bases=getattr(self, 'path_bases'))
-    else:
-      self.path_base = EntityPath(self.OS.getcwd())
+  _path_base = None
+  @property
+  def path_base(self):
+    if self._path_base is None:
+      self._path_base = EntityPath(self.OS.getcwd())
+    return self._path_base
 
-    self.OS.chdir(self.path_base)
+  @path_base.setter
+  def path_base(self, path):
+    self._path_base = EntityPath(path)
+
+    if self._path_base and self._path_base.exists():
+      self.OS.chdir(self._path_base)
+
+  pwd = path_base
+
+  def _set_working_dir(self, *args, **kwargs):
+    if hasattr(self, 'path_bases'):
+      self.set_project_paths(**kwargs)
+    elif hasattr(self, 'path_base') and getattr(self, 'path_base'):
+      self.path_base = getattr(self, 'path_base')
+
+  set_cwd = _set_working_dir
+  setcwd = _set_working_dir
 
   def set_project_paths(self, *args, **kwargs):
     """Set current working directory"""
-
+    self.log_info(f'Setting project path: {kwargs}')
     _path_bases = args[0] if len(args) > 0 else kwargs.get("path_bases", self.path_base)
     # Consider first path for Linux and second path for Windows
     if isinstance(_path_bases, (str)):
       self.path_base = EntityPath(_path_bases)
     elif isinstance(_path_bases, (list, tuple)):
       _path_bases = _path_bases * 2
-      self.path_base = EntityPath(_path_bases[1] if self.is_windows else _path_bases[0])
+      self.path_base = _path_bases[1] if self.is_windows else _path_bases[0]
     elif isinstance(_path_bases, (dict)):
       # Consider that order of the dict is preserved
-      self.set_project_paths(path_bases=_path_bases.values())
+      self.set_project_paths(path_bases=list(_path_bases.values()))
 
   def is_running(self, *args, **kwargs):
     _file = args[0] if len(args) > 0 else kwargs.get("file", "UtilityLib-Processes-v2.txt")

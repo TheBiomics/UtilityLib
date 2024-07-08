@@ -65,9 +65,7 @@ class DatabaseUtility(CommandUtility):
 
     return False
 
-  def db_connect(self, *args, **kwargs):
-    self.update_attributes(self, kwargs)
-    return self.connect_sqlite(**kwargs)
+  db_connect = connect_sqlite
 
   # Accessory functions using pandas
   def set_table_data(self, *args, **kwargs):

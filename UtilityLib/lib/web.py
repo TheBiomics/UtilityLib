@@ -50,10 +50,14 @@ class WebManager():
     def _webserver_listen():
       self.webapp.run(host=_host, port=_port, debug=_debug, use_reloader=_reloader)
 
-    self.server_thread = Threader.Thread(target=_webserver_listen)
-    self.server_thread.setDaemon(True)
-    self.server_thread.start()
-    print(f'Server Started at {_host}:{_port}')
+    _existing_threads = [t.name for t in Threader.enumerate()]
+    if not self.webapp_name in _existing_threads:
+      self.server_thread = Threader.Thread(target=_webserver_listen, name=self.webapp_name)
+      self.server_thread.setDaemon(True)
+      self.server_thread.start()
+      print(f'Server Started at {_host}:{_port}')
+    else:
+      self.log_info('Not starting thread as already started.')
 
   def _shutdown(self):
     """WIP"""

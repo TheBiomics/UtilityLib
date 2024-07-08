@@ -128,6 +128,7 @@ class EntityPath(Path):
         with self.open() as _f:
           for _ in range(int(num_lines)):
             yield next(_f).strip()
+
     except StopIteration:
       pass
     except Exception as _e:
@@ -136,6 +137,33 @@ class EntityPath(Path):
   read_lines = _read_lines
   readlines = _read_lines
   readline = _read_lines
+
+  def head(self, lines=1):
+    """Return first few lines of a file"""
+    return list(self._read_lines(lines))
+
+  def tail(self, lines=1, buffer_size=4098):
+    """Tail a file and get X lines from the end
+    Source: https://stackoverflow.com/a/13790289
+    """
+
+    _fh = self.open()
+    _res_lines = []
+    _block_counter = -1
+
+    import os as OS
+    while len(_res_lines) < lines:
+      try:
+        _fh.seek(_block_counter * buffer_size, OS.SEEK_END)
+      except IOError:
+        # either file is too small, or too many lines requested
+        _fh.seek(0)
+        break
+
+      _block_counter -= 1
+
+    _res_lines = _fh.readlines()
+    return _res_lines[-lines:]
 
   def _read_file(self, method=None):
     """Read the text from the file.

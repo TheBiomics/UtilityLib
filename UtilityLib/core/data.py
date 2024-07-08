@@ -2,7 +2,6 @@ from .file import FileSystemUtility
 from tqdm.auto import tqdm as _TQDMPB
 
 class DataUtility(FileSystemUtility):
-  TQDM = _TQDMPB
 
   def __init__(self, *args, **kwargs):
     self.__defaults = {}
@@ -67,7 +66,7 @@ class DataUtility(FileSystemUtility):
     _desc = kwargs.pop('desc', args[1] if len(args) > 1 else "Item")
     _desc_fn = kwargs.pop('desc_fn', args[2] if len(args) > 2 else None)
 
-    with self.TQDM(_items, **kwargs) as _pb:
+    with _TQDMPB(_items, **kwargs) as _pb:
       self._loop_obj = _pb
       for _i in _items:
         _pb.desc = _desc_fn(_i) if callable(_desc_fn) else f"{_desc} {_i}"
