@@ -69,7 +69,7 @@ class ProjectManager(UtilityManager):
 
   def set_config_path(self, *args, **kwargs):
     self.update_attributes(self, kwargs)
-    self.path_config = (EntityPath(self.path_base) / self.name).with_suffix(f".v{self.config_version}.{self.config_subversion}.config.gz")
+    self.path_config = (EntityPath(self.path_base) / self.name).with_suffix(f".v{self.config_version}.{self.config_subversion}.config.gz") if self.path_base else EntityPath(f"{self.name}.v{self.config_version}.{self.config_subversion}.config.gz")
 
   def rebuild_config(self, *args, **kwargs):
     self.update_attributes(self, kwargs)

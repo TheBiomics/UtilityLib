@@ -334,6 +334,10 @@ class EntityPath(Path):
   def search(self, pattern="**"):
     return self.glob(pattern)
 
+  type_ext = search
+  ext_type = search
+  file_type = search
+
   def get_size(self, converter=None):
     """Return the size of the file or directory."""
 

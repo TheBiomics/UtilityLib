@@ -30,7 +30,7 @@ class BaseUtility:
     __defaults.update(kwargs)
     self._set_os_type(**__defaults)
     self.update_attributes(self, __defaults)
-    # self._set_working_dir(**__defaults)
+    self._set_working_dir(**__defaults)
 
   _path_base = None
   @property
@@ -59,7 +59,6 @@ class BaseUtility:
 
   def set_project_paths(self, *args, **kwargs):
     """Set current working directory"""
-    self.log_info(f'Setting project path: {kwargs}')
     _path_bases = args[0] if len(args) > 0 else kwargs.get("path_bases", self.path_base)
     # Consider first path for Linux and second path for Windows
     if isinstance(_path_bases, (str)):

@@ -2,11 +2,12 @@ from .base import BaseUtility
 
 class TimeUtility(BaseUtility):
   def __init__(self, *args, **kwargs):
-    self.__defaults = {
+    __defaults = {
         "duration": 3,
       }
-    self.__defaults.update(kwargs)
-    super().__init__(**self.__defaults)
+    __defaults.update(kwargs)
+    super().__init__(**__defaults)
+    self.time_start()
 
   def time_get(self):
     self.require("time", "TIME")

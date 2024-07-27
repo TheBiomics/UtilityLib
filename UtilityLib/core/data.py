@@ -299,17 +299,31 @@ class DataUtility(FileSystemUtility):
 
     return _value
 
+  def sort_numeric(self, *args, **kwargs):
+    """Sort list of iterators as integer values
+
+      @params
+      0|iterator: iterator of string values
+
+      @return
+      list of sorted values
+    """
+    _it = kwargs.get("it", args[0] if len(args) > 0 else [])
+    _it = list(_it)
+    _it.sort(key=self.digit_only)
+    return _it
+
   def parse_digits(self, *args, **kwargs):
     """Digit parts of a given data
 
       @params
-      0|data: String type
+      0|string: String type
 
       # Considering data is str
       # Float, int list etc are not tested or handled
     """
-    _data = args[0] if len(args) > 0 else kwargs.get("data")
-    return "".join([_s for _s in str(_data) if _s.isdigit()])
+    _string = args[0] if len(args) > 0 else kwargs.get("string")
+    return "".join([_s for _s in str(_string) if _s.isdigit()])
 
   digits = parse_digits
   digit_only = parse_digits
@@ -319,7 +333,7 @@ class DataUtility(FileSystemUtility):
   def re_compile(self, *args, **kwargs):
     _pattern = args[0] if len(args) > 0 else kwargs.get("pattern")
     _ignore_case = args[1] if len(args) > 1 else kwargs.get("ignore_case", True)
-    _escape = args[1] if len(args) > 1 else kwargs.get("escape", False)
+    _escape = args[2] if len(args) > 2 else kwargs.get("escape", False)
 
     if self.require("re", "REGEX"):
       _pattern = self.REGEX.escape(_pattern) if _escape else _pattern
@@ -438,6 +452,8 @@ class DataUtility(FileSystemUtility):
     if _re_compiled is not None:
       return _re_compiled.findall(_string)
     return None
+
+  re_find_all = find_all
 
   def slice(self, *args, **kwargs):
     """@function (similar to chunks)
@@ -666,7 +682,7 @@ class DataUtility(FileSystemUtility):
     # 33-51,103-203
     _ranges = args[0] if len(args) > 0 else kwargs.get("ranges", "")
     _expanded = self.flatten(map(
-        lambda _l: [*range(int(_l[0]), int(_l[1]) + 1, 1)],
+        lambda _l: [*range(int(_l[0]), int(_l[1] or _l[0]) + 1, 1)],
         map(lambda _x: _x.split("-"), _ranges.split(","))
     ))
     return _expanded

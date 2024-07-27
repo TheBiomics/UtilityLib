@@ -1,6 +1,6 @@
 from functools import lru_cache as CacheMethod
 from contextlib import contextmanager
-from ..lib.entity import EntityPath
+from ..lib.obj import ObjDict
 from .log import LoggingUtility
 
 class CommandUtility(LoggingUtility):
@@ -321,26 +321,33 @@ _.queue_final_callback
 
   @property
   def queue_running(self) -> int:
-    self.config.jobs.running = sum(1 for _ftr in self.future_objects if not _ftr.done() and _ftr.running())
-    return self.config.jobs.running
+    _running = sum(1 for _ftr in self.future_objects if not _ftr.done() and _ftr.running())
+    return _running
+
+  @property
+  def queue_failed(self) -> int:
+    _failed = 0
+    _failed = sum(1 for _ftr in self.future_objects if _ftr.exception())
+    return _failed
 
   @property
   def queue_done(self) -> int:
-    self.config.jobs.done = sum(1 for _ftr in self.future_objects if _ftr.done())
-    return self.config.jobs.done
+    _done = sum(1 for _ftr in self.future_objects if _ftr.done())
+    return _done
 
   @property
   def queue_pending(self) -> int:
-    self.config.jobs.pending = sum(1 for _ftr in self.future_objects if not _ftr.done() and not _ftr.running())
-    return self.config.jobs.pending
+    _pending = sum(1 for _ftr in self.future_objects if not _ftr.done() and not _ftr.running())
+    return _pending
 
   @property
   def queue_task_status(self) -> dict:
-    # ToDo: ObjDict::config
-    self.queue_running
-    self.queue_done
-    self.queue_pending
-    return self.config.jobs
+    return ObjDict({
+      "done": self.queue_done,
+      "failed": self.queue_failed,
+      "running": self.queue_running,
+      "pending": self.queue_pending,
+    })
 
   def sys_open_files(self):
     import psutil as PC

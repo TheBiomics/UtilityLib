@@ -6,8 +6,5 @@ from .project import ProjectManager
 
 __all__ = ["OfficeManager", "UtilityManager", "ProjectManager", "ObjDict"]
 
-@ProjectManager
-def _ProjectManager():
-  ...
+UM = easyUtility = EU = PM = ProjectManager
 
-UM = easyUtility = EU = PM = _ProjectManager
