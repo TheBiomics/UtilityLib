@@ -580,7 +580,7 @@ class DataUtility(FileSystemUtility):
 
     _text1 = kwargs.get("text1", args[0] if len(args) > 0 else None)
     _text2 = kwargs.get("text2", args[1] if len(args) > 1 else None)
-    _min_len = kwargs.get("min_len", args[2] if len(args) > 2 else 1)
+    _min_len = kwargs.get("min_len", args[2] if len(args) > 2 else 2)
 
     from itertools import combinations as _C
 
@@ -706,8 +706,11 @@ class DataUtility(FileSystemUtility):
 
   def print_csv(self, *args, **kwargs):
     _args = [str(_a) for _a in self.flatten(args)]
-    _return = kwargs.get('return', False)
-    _str = ",".join(_args)
+    _sep = kwargs.get("sep", ",")
+    _return = kwargs.get('ret', True)
+    _str = _sep.join(_args)
     if _return:
       return _str
     print(_str)
+
+  format_csv = print_csv

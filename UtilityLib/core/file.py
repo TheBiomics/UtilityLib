@@ -83,14 +83,14 @@ class FileSystemUtility(DatabaseUtility):
   def _compress_file_to_gzip(self, *args, **kwargs):
     """Compress a file to gz
 
-    @params
-    0|path_file
-    1|flag_move (False): Deletes the original file
+    :param path_file|0:
+    :param flag_move|1: Default False
 
     """
-    self.path_file = args[0] if len(args) > 0 else kwargs.get("path_file")
-    self.flag_move = args[1] if len(args) > 1 else kwargs.get("flag_move", False)
+    self.path_file = kwargs.get("path_file", args[0] if len(args) > 0 else None)
+    self.flag_move = kwargs.get("flag_move", args[1] if len(args) > 1 else False)
     self.require("gzip", "GZip")
+
     with open(self.path_file, 'rb') as _f_in, self.GZip.open(f"{self.path_file}.gz", 'wb') as _f_out:
       _f_out.writelines(_f_in)
 
@@ -113,11 +113,11 @@ class FileSystemUtility(DatabaseUtility):
       1|files_path
       2|mode (default: w:gz)
     """
-    self.path_tgz = args[0] if len(args) > 0 else kwargs.get("path_tgz")
-    _file_paths = args[1] if len(args) > 1 else kwargs.get("files_path", [])
-    _mode = args[2] if len(args) > 2 else kwargs.get("mode", "w:gz")
+    self.path_tgz = kwargs.get("path_tgz", args[0] if len(args) > 0 else getattr('path_tgz', None))
+    _file_paths = kwargs.get("files_path", args[1] if len(args) > 1 else [])
+    _mode = kwargs.get("mode", args[2] if len(args) > 2 else "w:gz")
 
-    if isinstance(_file_paths, (str)):
+    if isinstance(_file_paths, (str, EntityPath)):
       _file_paths = [_file_paths]
 
     if isinstance(_file_paths, (list, tuple, set)):
@@ -763,42 +763,44 @@ class FileSystemUtility(DatabaseUtility):
 
     return self.check_path(_destination)
 
-
   def convert_bytes(self, *args, **kwargs):
-    """Converts bytes to KB, MB, GB... etc
+    """Converts bytes to ("B", "KiB", "MiB", "GiB", "TiB", "PiB", "EiB", "ZiB", "YiB")... etc
 
-    @params
-    0|_bytes : float
+    :params _bytes|0: float
     """
-    _bytes = args[0] if len(args) > 0 else kwargs.get('bytes', 0)
+    _bytes = kwargs.get('bytes', args[0] if len(args) > 0 else 0)
     _bytes = float(_bytes)
 
-    for _unit in ['bytes', 'KB', 'MB', 'GB', 'TB']:
-      if _bytes < 1024.0:
-        return (_bytes, _unit)
-      _bytes /= 1024.0
+    import math
+
+    if _bytes == 0:
+       return "0B"
+    size_name = ("B", "KiB", "MiB", "GiB", "TiB", "PiB", "EiB", "ZiB", "YiB")
+    i = int(math.floor(math.log(_bytes, 1024)))
+    p = math.pow(1024, i)
+    s = round(_bytes/p, 2)
+    return (s, size_name[i])
 
   def get_file_size(self, *args, **kwargs):
     """Returns file size(s)
 
-    @params
-    0|file_path : string or iterable
+    :params file_path|0: string or iterable
 
-    @returns
-    _file_size, _size_unit
+    :returns: [(file_path, file_size, size_unit), ]
     """
-    _file_path = args[0] if len(args) > 0 else kwargs.get('file_path', [])
+    _file_path = kwargs.get('file_path', args[0] if len(args) > 0 else [])
 
     _sizes = []
     _flag_is_single = False
-    if isinstance(_file_path, (str)):
+    if isinstance(_file_path, (str, EntityPath)):
       _flag_is_single = True
       _file_path = [_file_path]
 
-    if isinstance(_file_path, (list, tuple, set)):
+    if self.is_iterable(_file_path):
       for _fp in _file_path:
-        if self.exists(_fp):
-          _sizes.append((_fp, *self.convert_bytes(self.OS.path.getsize(_fp))))
+        _fp = EntityPath(_fp)
+        if _fp.exists():
+          _sizes.append((_fp, *_fp.get_size(self.convert_bytes)))
 
     return _sizes[0] if _flag_is_single else _sizes
 
@@ -1078,24 +1080,29 @@ class FileSystemUtility(DatabaseUtility):
       @ToDo
       num_ext=-1 to guess extensions
     """
-    _file_path = args[0] if len(args) > 0 else kwargs.get("file_path")
-    _with_ext = args[1] if len(args) > 1 else kwargs.get("with_ext", False)
-    _with_dir = args[2] if len(args) > 2 else kwargs.get("with_dir", False)
-    _num_ext = args[3] if len(args) > 3 else kwargs.get("num_ext", 1)
+    _file_path = kwargs.get("file_path", args[0] if len(args) > 0 else None)
+    _with_ext = kwargs.get("with_ext", args[1] if len(args) > 1 else False)
+    _with_dir = kwargs.get("with_dir", args[2] if len(args) > 2 else False)
+    _num_ext = kwargs.get("num_ext", args[3] if len(args) > 3 else 1)
 
     if not _file_path:
       return None
 
+    _file_path = EntityPath(_file_path)
+    _result = _file_path.resolve()
+
     if _with_dir is False:
-      _file_path = self.OS.path.basename(_file_path)
+      _result = _file_path.name
+
+    _result = str(_result)
 
     if _with_ext is True:
-      return str(_file_path)
+      return _result
 
-    _file_path = _file_path.rsplit(".", _num_ext)
+    _result = _result.rsplit(".", _num_ext)
 
-    if len(_file_path):
-      return _file_path[0]
+    if len(_result):
+      return _result[0]
 
     return None
 

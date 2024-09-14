@@ -45,7 +45,17 @@ class DatabaseUtility(CommandUtility):
     return self.engine
 
   def connect_sqlite(self, *args, **kwargs):
-    self.db_path = args[0] if len(args) > 0 else kwargs.get("db_path", getattr(self, "db_path"))
+    """Connects with SQLite Database
+
+    :param db_path|0: Path to SQLite Database File (Optionally to be created)
+    :returns: str|None
+
+    """
+    self.db_path = kwargs.get("db_path", args[0] if len(args) > 0 else getattr(self, "db_path", None))
+
+    if not self.db_path:
+      self.log_error(f"DB path is not provided.")
+      return None
 
     if self.is_connected:
       return self.db_path
@@ -143,18 +153,27 @@ class DatabaseUtility(CommandUtility):
     return None
 
   def get_table_data(self, *args, **kwargs):
-    _table = args[0] if len(args) > 0 else kwargs.get("table_name")
-    _where = args[1] if len(args) > 1 else kwargs.get("where")
-    _db_engine = args[2] if len(args) > 2 else kwargs.get("engine", self.engine)
+    """Get SQLite or SQL Table Data
+
+    * Use where dict object for where query
+    * Read whole table, use chunksize for generator object for large tables)
+
+    :param table_name|0: Default First Table
+    :param where|1: Where Clause
+    :param engine|2: Pass database Engine (Default self.engine)
+    :param chunksize: See `pandas.read_sql_table`
+
+    Returns:
+      DataFrame|None: Pandas DataFrame
+    """
+    _table = kwargs.pop("table_name", args[0] if len(args) > 0 else None)
+    _where = kwargs.pop("where", args[1] if len(args) > 1 else None)
+    _db_engine = kwargs.pop("engine", args[2] if len(args) > 2 else self.engine)
 
     _db_entries = self.__empty_table_with_columns(**kwargs)
 
-    if _table is None:
-      """
-      @TODO
-        getattr(self, 'tables') # use first table as default
-      """
-      return _db_entries
+    if _table is None and len(self.tables) > 0:
+      _table = self.tables[0]
 
     try:
       self.require('pandas', 'PD')
@@ -169,9 +188,9 @@ class DatabaseUtility(CommandUtility):
             _where_values = repr(_where[_key]) if isinstance(_where[_key], str) else f"({', '.join(map(repr, _where[_key]))})"
             _where_clause = f"{_where_clause}{_key} {_where_val_connector} {_where_values}"
 
-        _db_entries = self.PD.read_sql(f"SELECT * FROM {_table} WHERE {_where_clause}", _db_engine)
+        _db_entries = self.PD.read_sql(f"SELECT * FROM {_table} WHERE {_where_clause}", _db_engine, **kwargs)
       else:
-        _db_entries = self.PD.read_sql_table(_table, _db_engine)
+        _db_entries = self.PD.read_sql_table(_table, _db_engine, **kwargs)
     except Exception as _e:
       self.log_info(f"Some error occurred while accessing table '{_table}': {_e}")
 
@@ -179,7 +198,6 @@ class DatabaseUtility(CommandUtility):
     return _db_entries
 
   def insert(self, *args, **kwargs):
-
     """
       @usage
       CLASS.insert("table_name", {
@@ -189,8 +207,8 @@ class DatabaseUtility(CommandUtility):
         'col_N': None})
     """
 
-    _table = args[0] if len(args) > 0 else kwargs.get("table")
-    _values = args[1] if len(args) > 1 else kwargs.get("values") # dict
+    _table = kwargs.get("table", args[0] if len(args) > 0 else None)
+    _values = kwargs.get("values", args[1] if len(args) > 1 else None) # dict
 
     _table_obj = self.tables.get(_table)
 
@@ -202,12 +220,13 @@ class DatabaseUtility(CommandUtility):
   def _query_database(self, *args, **kwargs):
     """Manual query to database
 
-    @params
-    0|query: sql statement
-    1|query_params: Query parameters
+    :param query|0: sql statement
+    :param query_params|1: Query parameters
+
+    :returns: Result Iterator
     """
-    self.query_last = args[0] if len(args) > 0 else kwargs.get("query")
-    self.query_params = args[1] if len(args) > 1 else kwargs.get("query_params")
+    self.query_last = kwargs.get("query", args[0] if len(args) > 0 else None)
+    self.query_params = kwargs.get("query_params", args[1] if len(args) > 1 else None)
 
     from sqlalchemy import text as SQLText
     with self.engine.connect().execution_options(isolation_level="AUTOCOMMIT") as _con:
