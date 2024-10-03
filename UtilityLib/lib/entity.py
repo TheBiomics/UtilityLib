@@ -1,4 +1,5 @@
 from pathlib import Path
+import os as OS, time as TIME
 
 class EntityPath(Path):
   _flavour = Path('.')._flavour
@@ -394,3 +395,35 @@ class EntityPath(Path):
 
   def __add__(self, what=''):
     return self / what
+
+  _stats = None
+
+  @property
+  def stats(self):
+    if self._stats is None:
+      self.get_stats()
+    return self._stats
+
+  def get_stats(self):
+    self._stats = OS.stat(str(self))
+    return self._stats
+
+  @property
+  def permission(self):
+    return oct(self.stats.st_mode)
+
+  mode = permission
+
+  @property
+  def created(self):
+    return TIME.ctime(self.stats.st_ctime)
+
+  @property
+  def accessed(self):
+    return TIME.ctime(self.stats.st_atime)
+
+  @property
+  def updated(self):
+    return TIME.ctime(self.stats.st_mtime)
+
+  modified = updated

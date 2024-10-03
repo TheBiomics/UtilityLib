@@ -1,4 +1,6 @@
 from .file import FileSystemUtility
+from ..lib.entity import EntityPath
+
 from tqdm.auto import tqdm as _TQDMPB
 
 class DataUtility(FileSystemUtility):
@@ -108,24 +110,26 @@ class DataUtility(FileSystemUtility):
   def _json_file_to_df(self, *args, **kwargs):
     """JSON structure to DataFrame converter
 
-    0|json: JSON file path (string)/object (dict)
-    1|map: Dot notation of keys to parse (parsable using UL.deepkey) i.e., column to key map e.g. entity|0|metadata|header
+    :param json|0: JSON file path (string)/object (dict)
+    :param map|1: Dot notation of keys to parse (parsable using UL.deepkey) i.e., column to key map e.g. entity|0|metadata|header
 
-    @return
-    Pandas DataFrame object
+    :return: pandas.DataFrame
 
     """
-    _json = args[0] if len(args) > 0 else kwargs.get("json")
-    _map = args[1] if len(args) > 1 else kwargs.get("map", None)
-    _sep = args[2] if len(args) > 2 else kwargs.get("sep", '.')
+    _json_path = kwargs.get("json_path", args[0] if len(args) > 0 else None)
+    _map = kwargs.get("map", args[1] if len(args) > 1 else None)
+    _sep = kwargs.get("sep", args[2] if len(args) > 2 else '.')
 
-    if not hasattr(kwargs, 'sep'):
-      kwargs.update({"sep": _sep})
-
-    if isinstance(_json, (str)):
-      _json = self.read_json(_json)
-
+    kwargs.setdefault("sep", _sep)
     _result = []
+
+    _json_path = EntityPath(_json_path)
+
+    if _json_path.exists():
+      _json = self.read_json(_json_path)
+    else:
+      self.log_error(f'Please provide valid JSON path {_json}')
+      return self.DF(_result)
 
     for _json_el in _json:
       _row = {}
@@ -133,11 +137,14 @@ class DataUtility(FileSystemUtility):
         # If column map is provided
         for _column, _dotkey in _map.items():
           _row[_column] = self.get_deep_key(_json_el, _dotkey, **kwargs)
-      else:
+        _result.append(_row)
+      elif isinstance(_json_el, (dict)):
         # If column map is not provided
-        for _column, _value in _json.items():
+        for _column, _value in _json_el.items():
           _row[_column] = _value
-      _result.append(_row)
+        _result.append(_row)
+      else:
+        self.log_warning("JSON_TO_DF: Could not process data.")
 
     return self.DF(_result)
 
@@ -691,7 +698,7 @@ class DataUtility(FileSystemUtility):
     _text = kwargs.get("text", args[0] if len(args) > 0 else "")
     _keep = kwargs.get("keep", args[1] if len(args) > 1 else ["-"])
     _replace_with = kwargs.get("replace_with", args[2] if len(args) > 2 else "-")
-    _replacements = kwargs.get("keep", args[3] if len(args) > 3 else {"_": "-"})
+    _replacements = kwargs.get("replacements", args[3] if len(args) > 3 else {"_": "-"})
     _lower = kwargs.get("lower", args[4] if len(args) > 4 else False)
 
     if isinstance(_text, (str)):

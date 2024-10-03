@@ -395,15 +395,17 @@ class FileSystemUtility(DatabaseUtility):
     _default = args[1] if len(args) > 1 else kwargs.get("default", None)
     _flag_compressed = args[2] if len(args) > 2 else kwargs.get("flag_compressed", True)
 
-    if self.check_path(_source) and self.require('pickle', "PICKLE", "pickle"):
+    _source = EntityPath(_source)
+
+    if _source.exists() and self.require('pickle', "PICKLE"):
       if _flag_compressed and self.require("gzip", "GZip"):
-        with self.GZip.open(_source, 'rb') as _fh:
+        with self.GZip.open(str(_source.resolve()), 'rb') as _fh:
           _default = self.PICKLE.load(_fh)
       else:
-        with open(_source, 'rb+') as _fp:
+        with open(str(_source.resolve()), 'rb+') as _fp:
           _default = self.PICKLE.load(_fp)
     else:
-      self.log_error("Required module or pickle path is not found!")
+      self.log_error(f"Either path {_source} doesn't exists or required module or pickle path is not found!")
 
     return _default
 
@@ -567,7 +569,7 @@ class FileSystemUtility(DatabaseUtility):
     _destination = kwargs.get("destination", args[0] if len(args) > 0 else None)
     _content = kwargs.get("content", args[1] if len(args) > 1 else None)
 
-    self.require('cPickle', "PICKLE", "pickle")
+    self.require('pickle', "PICKLE", "pickle")
     self.require("gzip", "GZip")
 
     try:

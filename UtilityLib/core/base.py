@@ -226,46 +226,52 @@ class BaseUtility:
 
   @CacheMethod(maxsize=None)
   def _import_single_module(self, *args, **kwargs):
-    """"Import module in the run time from the utility.
+    """"Import module in global context with self reference.
+
+      @update import module in global context and provide as attribute or accessible as sys.modules
+
+      @ToDo: Multiple instances of a module
 
       @usage
-      require(module_name, import_as, alternate_if_not_available)
+      require_global(module_name, import_as, alternate_if_not_available)
 
-      @params
-      0|module (str):
-      1|as (str|None):
-      2|alternate (str|None):
+      :param module|0: (str)
+      :param as|1: (str|None)
+      :param alternate|2: (str|None)
 
-      @return
-      True: if module/alternate is imported
-      False: If no module could be imported
+      :return: True: if module/alternate is imported
+      :return: False: If no module could be imported
     """
-    _module = args[0] if len(args) > 0 else kwargs.get("module")
-    _as = args[1] if len(args) > 1 else kwargs.get("as")
-    _alternate = args[2] if len(args) > 2 else kwargs.get("alternate", False)
+    _module = kwargs.get("module", args[0] if len(args) > 0 else None)
+    _as = kwargs.get("as", args[1] if len(args) > 1 else None)
+    _alternate = kwargs.get("alternate", args[2] if len(args) > 2 else False)
 
     if _as is None:
       _as = _module
 
     if hasattr(self, _as) and getattr(self, _as, None) is not None:
+      self.log_debug(f"Module {_module} as {_as} already imported.")
       return True
 
     _module_instance = None
-
-    try:
-      __i = MODULE_IMPORTER.import_module(_module)
-      self.log_debug(f"Imported {_module}")
-      _module_instance = __i
-    except:
-      self.log_error(f"`{_module} as {_as}` could not be imported.")
+    if _module in self.SYS.modules.keys():
+      self.log_debug(f"Importing {_module} as {_as} from global context.")
+      _module_instance = self.SYS.modules[_module]
+    else:
       try:
-        if _alternate and isinstance(_alternate, (str)):
-          self.log_warning(f"{_module} could not be imported. Trying to import {_alternate}.")
-          __i = MODULE_IMPORTER.import_module(_alternate)
-          _module_instance = __i
+        __i = MODULE_IMPORTER.import_module(_module)
+        self.log_debug(f"Imported {_module}")
+        _module_instance = __i
       except:
-        _error_message = f"{_module} as {_as} or its alternate {_alternate} could not be imported."
-        self.log_error(_error_message)
+        self.log_error(f"`{_module} as {_as}` could not be imported.")
+        try:
+          self.log_debug(f"{_module} could not be imported. Trying to import {_alternate}.")
+          if _alternate and isinstance(_alternate, (str)):
+            __i = MODULE_IMPORTER.import_module(_alternate)
+            _module_instance = __i
+        except:
+          _error_message = f"{_module} as {_as} or its alternate {_alternate} could not be imported."
+          self.log_error(_error_message)
 
     if _module_instance is None:
       return False
@@ -277,3 +283,4 @@ class BaseUtility:
 
   import_module = _import_single_module
   require = _import_single_module
+  require_global = _import_single_module
