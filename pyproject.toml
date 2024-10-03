@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "UtilityLib"
 description = "Python Helper for Repetitive Tasks with File and Data Management"
-version = "2.15"
+version = "2.16"
 authors = [
   { name="Vishal Kumar Sahu", email="mail@vishalkumarsahu.in" },
 ]
