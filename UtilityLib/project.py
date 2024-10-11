@@ -47,7 +47,7 @@ class ProjectManager(UtilityManager):
   def convert_to_toml_obj(self, data={}) -> str:
     _toml_str = ""
     if data and self.require('toml', 'TOML'):
-      self.log_debug('Dumping TOML data')
+      self.log_debug('PROJECT_01: Dumping TOML data')
       _toml_str = self.recursive_map(data)
       _toml_str = self.TOML.dumps(_toml_str)
 
@@ -62,7 +62,7 @@ class ProjectManager(UtilityManager):
     _toml_str = self.convert_to_toml_obj(self.toml_data)
 
     if self.toml_path.exists():
-      self.log_debug('Overwriting TOML config.')
+      self.log_debug('PROJECT_02: Overwriting TOML config.')
 
     self.toml_path.write(_toml_str)
     return self.toml_path.exists()

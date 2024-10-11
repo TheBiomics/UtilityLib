@@ -51,7 +51,7 @@ class CommandUtility(LoggingUtility):
 
     self.require('subprocess', 'SubProcess')
     try:
-      self.log_debug(f"Calling command: {_command_str}")
+      self.log_debug(f"CMD_007: Calling command: {_command_str}")
       _result = self.SubProcess.call(_command, cwd=_cwd)
       return _result
     except Exception as _e:
@@ -90,9 +90,9 @@ class CommandUtility(LoggingUtility):
     _command_str = ' '.join(_command)
 
     try:
-      self.log_debug(f"Running command: {_command_str}")
+      self.log_debug(f"CMD_008: Running command: {_command_str}")
       _result = self.SubProcess.run(_command, **_cmd_params)
-      self.log_debug(f"Command output: {_result.stdout}")
+      self.log_debug(f"CMD_009: Command output: {_result.stdout}")
       return _result.stdout
     except self.SubProcess.CalledProcessError as _e:
       self.log_error(f"Command '{_command_str}' failed with error: {_e.stderr}")
@@ -211,7 +211,7 @@ class CommandUtility(LoggingUtility):
   # Multithreading
   max_workers = 32
   num_cores = 8
-  thread_executor = None
+  thread_pool = None
   semaphore = None
   task_queue = None
   future_objects = []
@@ -225,23 +225,25 @@ class CommandUtility(LoggingUtility):
 
   def init_multiprocessing(self, *args, **kwargs):
     self.update_attributes(self, kwargs)
-    self.require('concurrent.futures', 'ConcurrentTasks')
+    self.require('concurrent.futures', 'ConcurrentFutures')
     self.require('threading', 'Threading')
     self.require('queue', 'QueueProvider')
     self._get_max_workers()
     self.task_queue = self.QueueProvider.Queue()
-    self.semaphore = self.Threading.Semaphore(self.max_workers)
-    self.thread_executor = self.ConcurrentTasks.ThreadPoolExecutor(max_workers=self.max_workers)
-    self.log_debug(f"Starting with cores {self.num_cores} and max_workers {self.max_workers}.")
+    self.semaphore = self.Threading.Semaphore(self.max_workers - 1)
+    self.thread_pool = self.ConcurrentFutures.ThreadPoolExecutor(max_workers=self.max_workers)
+    self.log_debug(f"CMD_002:Starting with cores {self.num_cores} and max_workers {self.max_workers}.")
 
   start_mp = init_multiprocessing
 
   def __enter__(self):
+    self.log_debug('CMD_004: Init multiprocessing.')
     self.init_multiprocessing()
     return self
 
   def __exit__(self, *args, **kwargs):
-    self.thread_executor.shutdown()
+    self.log_debug('CMD_001: Shutting down the thread executor.')
+    self.thread_pool.shutdown()
 
   @CacheMethod(maxsize=None)
   def _cache_wrapper(self, func, *arg, **kwarg):
@@ -267,7 +269,7 @@ _.queue_final_callback
     _cb_interval = kwargs.pop("cb_interval", 300)
     if not callback is None and callable(callback):
       self.require('threading', 'Threading')
-      self.log_debug(f'Delegating a callback in {_cb_interval}s.')
+      self.log_debug(f'CMD_003: Delegating a callback in {_cb_interval}s.')
       self.Threading.Timer(_cb_interval, callback, args=args, kwargs=kwargs)
 
   def queue_final_callback(self, callback=None, *args, **kwargs) -> None:
@@ -279,12 +281,12 @@ _.queue_final_callback
   def _queue_final_cb_fn_bg_exe(self, callback, *args, **kwargs) -> None:
     _cb_interval = kwargs.pop("cb_interval", 60)
     while True:
-      _job_r, _job_p = self.queue_running, self.queue_pending
-      if any([_job_r > 0, _job_p > 0]):
-        self.log_debug(f'Job Status: {_job_r} running / {_job_p} pending. ~zZ {_cb_interval}s')
+      _job_t, _job_d = self.queue_task_status.total, self.queue_task_status.done
+      if any([_job_d < _job_t, not self.task_queue.empty()]):
+        self.log_debug(f'CMD_004: Job Status: {_job_t-_job_d}/{_job_t} to be done. ~zZ {_cb_interval}s')
         self.time_sleep(_cb_interval)
       else:
-        self.log_debug(f'Job Status: All {self.queue_done} job(s) completed. Executing final callback...')
+        self.log_debug(f'CMD_005: Job Status: All {self.queue_done} job(s) completed. Executing final callback...')
         callback(*args, **kwargs)
         break
 
@@ -299,57 +301,56 @@ _.queue_final_callback
       try:
         with self.semaphore:
           _func, _args, _kwargs = self.task_queue.get()
-          _ftr_obj = self.thread_executor.submit(_func, *_args, **_kwargs)
+          _ftr_obj = self.thread_pool.submit(_func, *_args, **_kwargs)
           self.future_objects.append(_ftr_obj)
       except Exception as e:
         self.log_error(f"Error processing the queue: {e}")
 
     self._shut_down_queue(*args, **kwargs)
-
-    return self.queue_task_status
+    return True
 
   def _shut_down_queue(self, *args, **kwargs):
     _wait = kwargs.get("wait", args[0] if len(args) > 0 else False)
+    self.log_debug(f'CMD_006: Setting queue wait = {_wait}.')
 
-    self.log_debug(f'Waiting Queue To Complete: wait = {_wait}')
     if _wait:
       # Wait for all tasks to complete
-      self.ConcurrentTasks.wait(self.future_objects)
+      self.ConcurrentFutures.wait(self.future_objects)
 
     # Shutdown the ThreadPoolExecutor
-    self.thread_executor.shutdown(wait=_wait)
+    self.thread_pool.shutdown(wait=_wait)
 
   @property
   def queue_running(self) -> int:
-    _running = sum(1 for _ftr in self.future_objects if not _ftr.done() and _ftr.running())
-    return _running
+    """Blocking"""
+    return sum(map(lambda _fo: bool(_fo.running()), self.ConcurrentFutures.as_completed(self.future_objects)))
 
   @property
   def queue_failed(self) -> int:
-    _failed = 0
-    _failed = sum(1 for _ftr in self.future_objects if _ftr.exception())
-    return _failed
+    """Blocking"""
+    return sum(map(lambda _fo: bool(_fo.exception()), self.ConcurrentFutures.as_completed(self.future_objects)))
 
   @property
   def queue_done(self) -> int:
-    _done = sum(1 for _ftr in self.future_objects if _ftr.done())
-    return _done
+    return self.queue_task_status.done
 
   @property
   def queue_pending(self) -> int:
-    _pending = sum(1 for _ftr in self.future_objects if not _ftr.done() and not _ftr.running())
-    return _pending
+    return self.queue_task_status.pending
 
   @property
   def queue_task_status(self) -> dict:
+    _total = len(self.future_objects)
+    _done = sum(map(lambda _fo: bool(_fo.done()), self.future_objects))
+
     return ObjDict({
-      "done": self.queue_done,
-      "failed": self.queue_failed,
-      "running": self.queue_running,
-      "pending": self.queue_pending,
+      "total": _total,
+      "done": _done,
+      "pending": _total - _done, # _fo.done() - _fo.running()
     })
 
   def sys_open_files(self):
+    """Returns list of open files or open file handles by system"""
     import psutil as PC
     _p = PC.Process()
     return _p.open_files()

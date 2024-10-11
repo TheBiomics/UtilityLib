@@ -65,13 +65,30 @@ class TimeUtility(BaseUtility):
     return self.time_get() - self.start_time
 
   def _sleep(self, *args, **kwargs):
+    """Sleep for certain `duration|0` in seconds."""
     self.update_attributes(self, kwargs)
-    self.duration = args[0] if len(args) > 0 else kwargs.get("duration", getattr(self, "duration"))
+    self.duration = kwargs.get("duration", args[0] if len(args) > 0 else getattr(self, "duration"))
     self.require("time", "TIME")
-    self.TIME.sleep(self.duration)
+    return self.TIME.sleep(self.duration)
 
   sleep = _sleep
   wait = _sleep
   time_break = _sleep
   time_pause = _sleep
   time_sleep = _sleep
+
+  def sleep_ms(self, *args, **kwargs):
+    """Sleep for certain `duration|0` in milliseconds."""
+    self.duration = kwargs.get("duration", args[0] if len(args) > 0 else getattr(self, "duration"))
+    kwargs['duration'] = float(self.duration) / 1000
+    return self._sleep(*args, **kwargs)
+
+  def sleep_random(self, *args, **kwargs):
+    """Sleep for random seconds between `min|0` and `max|1`."""
+    _min = kwargs.get("min", args[0] if len(args) > 0 else 1)
+    _max = kwargs.get("max", args[1] if len(args) > 0 else 6)
+
+    self.require("random", "RANDOM")
+    _duration = self.RANDOM.uniform(float(_min), float(_max))
+    kwargs['duration'] = _duration
+    return self._sleep(**kwargs)

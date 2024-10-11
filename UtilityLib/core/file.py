@@ -679,12 +679,12 @@ class FileSystemUtility(DatabaseUtility):
     _destination = args[1] if len(args) > 1 else kwargs.get("destination")
 
     if not all([_source, _destination]):
-      self.log_debug(f"Source or Destination is not specified.")
+      self.log_debug(f"FILE_01: Source or Destination is not specified.")
       return False
 
     self.validate_dir(self.OS.path.dirname(_destination))
 
-    self.log_debug(f"Copying... {_source} to {_destination}.")
+    self.log_debug(f"FILE_02: Copying... {_source} to {_destination}.")
     self.SHUTIL.copyfile(_source, _destination)
     return self.check_path(_destination)
 
@@ -963,7 +963,7 @@ class FileSystemUtility(DatabaseUtility):
 
       for _d in _path:
         if len(_d) > 1 and not self.OS.path.exists(_d):
-          self.log_debug(f"Path does not exist. Creating {_d}...")
+          self.log_debug(f"FILE_03: Path does not exist. Creating {_d}...")
           _res = self.OS.makedirs(_d)
           _dir_created[_d] = _res
         else:

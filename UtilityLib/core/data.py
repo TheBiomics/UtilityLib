@@ -499,6 +499,17 @@ class DataUtility(FileSystemUtility):
   slices = chunks
   sliced = chunks
 
+  def iterate(self, *args, **kwargs):
+    """Flattens and iterates the *args only if they pass is_iterable"""
+
+    _iterables = filter(self.is_iterable, args)
+    _iterables = self.flatten(_iterables)
+
+    for _i in _iterables:
+      yield _i
+
+  loop = iterate
+
   @staticmethod
   def is_iterable(*args, **kwargs):
     """
@@ -710,6 +721,35 @@ class DataUtility(FileSystemUtility):
     return _text.lower() if _lower else _text
 
   slug = text_to_slug
+
+  string_separators = [',', ';', ' ', '\n']
+  def _guess_separator(self, *args, **kwargs):
+    """Guesses the separator used in a string of values based on the maximum occurrences."""
+
+    _string = kwargs.get('content', args[0] if len(args) > 0 else "")
+    _separators = kwargs.get('separators', args[1] if len(args) > 1 else self.string_separators)
+
+    if not self.is_iterable(_separators):
+      _separators = self.string_separators
+
+    _max_count = 0
+    _best_sep = None
+
+    for _sep in _separators:
+      _count = _string.count(_sep)
+      if _count > _max_count:
+        _max_count = _count
+        _best_sep = _sep
+
+    return _best_sep
+
+  def split_guess(self, *args, **kwargs):
+    """Splits a string of values using the guessed separator."""
+
+    _string = kwargs.get('content', args[0] if len(args) > 0 else "")
+    _sep = self._guess_separator(*args, **kwargs)
+    _vals = _string.split(_sep)
+    return _vals
 
   def print_csv(self, *args, **kwargs):
     _args = [str(_a) for _a in self.flatten(args)]

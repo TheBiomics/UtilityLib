@@ -250,22 +250,22 @@ class BaseUtility:
       _as = _module
 
     if hasattr(self, _as) and getattr(self, _as, None) is not None:
-      self.log_debug(f"Module {_module} as {_as} already imported.")
+      self.log_debug(f"BASE_01: Module {_module} as {_as} already imported.")
       return True
 
     _module_instance = None
     if _module in self.SYS.modules.keys():
-      self.log_debug(f"Importing {_module} as {_as} from global context.")
+      self.log_debug(f"BASE_02: {_module} as {_as} referred from global context.")
       _module_instance = self.SYS.modules[_module]
     else:
       try:
         __i = MODULE_IMPORTER.import_module(_module)
-        self.log_debug(f"Imported {_module}")
+        self.log_debug(f"BASE_03: Imported {_module}")
         _module_instance = __i
       except:
         self.log_error(f"`{_module} as {_as}` could not be imported.")
         try:
-          self.log_debug(f"{_module} could not be imported. Trying to import {_alternate}.")
+          self.log_debug(f"BASE_04: {_module} could not be imported. Trying to import {_alternate}.")
           if _alternate and isinstance(_alternate, (str)):
             __i = MODULE_IMPORTER.import_module(_alternate)
             _module_instance = __i
