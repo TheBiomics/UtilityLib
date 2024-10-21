@@ -14,13 +14,6 @@ class BaseUtility:
   version = __version__
   version_info = f"{__version__}.{__build__}"
 
-  OS = _OS
-  SYS = _SYSTEM
-  SYSTEM = _SYSTEM
-  os_type = None
-  is_windows = None
-  is_linux = None
-
   _messages_to_log = [] # [{type:..., text:..., time:...}]
 
   _imported_modules = []
@@ -28,7 +21,6 @@ class BaseUtility:
   def __init__(self, *args, **kwargs):
     __defaults = {}
     __defaults.update(kwargs)
-    self._set_os_type(**__defaults)
     self.update_attributes(self, __defaults)
     self._set_working_dir(**__defaults)
 
@@ -122,17 +114,17 @@ class BaseUtility:
 
   __str__ = __repr__
 
-  def _set_os_type(self, *args, **kwargs):
-    if self.OS.name == "nt":
-      self.is_windows = True
-      self.is_linux = False
-      self.os_type = 'windows'
-    else:
-      self.is_linux = True
-      self.is_windows = False
-      self.os_type = 'linux'
+  OS = _OS
+  SYS = _SYSTEM
+  SYSTEM = _SYSTEM
 
-  set_system_type = _set_os_type
+  @property
+  def is_windows(self):
+    return self.OS.name == "nt"
+
+  @property
+  def is_linux(self):
+    return self.OS.name == "posix"
 
   def _import_module_from(self, *args, **kwargs):
     """Executes "from Package import Module"
@@ -185,16 +177,15 @@ class BaseUtility:
     @extends require
     To import from a given path by adding the path to the system
 
-    @params
-    0|module_path:
-    1|module:
+    :param module_path|0:
+    :param module|1:
     """
-    _module_path = args[0] if len(args) > 0 else kwargs.get("module_path", "")
+    _module_path = kwargs.get("module_path", args[0] if len(args) > 0 else ".")
 
     args = args[1:] # tuple.pop(0 error)
 
     self.SYSTEM.path.append(_module_path)
-    self.require(*args, **kwargs)
+    self._import_single_module(*args, **kwargs)
     return self
 
   import_path = require_path

@@ -1,11 +1,11 @@
 # UtilityLib
-UtilityLib is a Python package that provides a collection of ready-to-use functions for various file and directory operations, data processing tasks, and more.
+UtilityLib is a unified library of basic modules that provides a collection of ready-to-use functions for various file system oprerations and data processing.
 
 # Installation
 
 * You can install UtilityLib via pip or by copying the UtilityLib directory into your project.
 * Using pip: `pip install UtilityLib`
-* Using GitHub: `pip install git+https://github.com/yourusername/UtilityLib.git`
+* Using pip+GitHub: `pip install git+https://github.com/yourusername/UtilityLib.git`
 
 # Usage/Examples
 
@@ -54,3 +54,11 @@ _wos_files = EU.search(f"{path_scrapped_queries}/WOS-Downloads", "*.csv")
 EU.add_tgz_files(f"{path_scrapped_queries}/WOS-Downloads.tgz", _wos_files)
 EU.delete_path(f"{path_scrapped_queries}/WOS-Downloads")
 ```
+
+# Classes and Modules
+
+* [UtilityLib](./UtilityLib/docs/UtilityLib.md)
+
+* [EntityPath](./UtilityLib/docs/entity.md)
+* [FileSystemUtility](./UtilityLib/docs/file.md)
+* [CommandUtility](./UtilityLib/docs/cmd.md)

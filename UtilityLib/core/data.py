@@ -98,13 +98,16 @@ class DataUtility(FileSystemUtility):
     _df = kwargs.get("df", args[0] if len(args) > 0 else None)
     _key = kwargs.get("key", args[1] if len(args) > 1 else None)
 
-    if not any([_df, _key]):
+    if not any([_df is None, _key]):
       return None
 
-    _joined_cols = ["__".join(_idx) for _idx in _df.columns.ravel()]
-    _df.columns = _joined_cols if len(_joined_cols) == len(_df.columns) else _df.columns
-    if _key and (not _key in _df.columns) and (not 'index' in _df.columns):
+    if _df.columns.nlevels > 1:
+      # Unravel multi column df
+      _joined_cols = ["__".join(_idx) for _idx in _df.columns.ravel()]
+      _df.columns = _joined_cols if len(_joined_cols) == len(_df.columns) else _df.columns
+      if _key and (not _key in _df.columns) and (not 'index' in _df.columns):
         _df = _df.reset_index()
+
     return _df
 
   def _json_file_to_df(self, *args, **kwargs):
@@ -730,7 +733,7 @@ class DataUtility(FileSystemUtility):
     _separators = kwargs.get('separators', args[1] if len(args) > 1 else self.string_separators)
 
     if not self.is_iterable(_separators):
-      _separators = self.string_separators
+      _separators = list(str(_separators))
 
     _max_count = 0
     _best_sep = None

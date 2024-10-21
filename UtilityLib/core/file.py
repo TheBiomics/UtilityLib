@@ -55,7 +55,7 @@ class FileSystemUtility(DatabaseUtility):
   compress_dir = _compress_dir
   compress_zip = _compress_dir
 
-  def _compress_to_tgz(self, *args, **kwargs):
+  def _compress_dir_to_tgz(self, *args, **kwargs):
     """@extends _compress_dir
 
     Compresses a directory to tar.gz
@@ -68,8 +68,8 @@ class FileSystemUtility(DatabaseUtility):
 
     self._compress_dir(*args, **kwargs)
 
-  to_tgz = _compress_to_tgz
-  tgz = _compress_to_tgz
+  to_tgz = _compress_dir_to_tgz
+  tgz = _compress_dir_to_tgz
 
   def zip(self, *args, **kwargs):
     _format = args[1] if len(args) > 1 else kwargs.get("format", "zip")
@@ -776,7 +776,7 @@ class FileSystemUtility(DatabaseUtility):
     import math
 
     if _bytes == 0:
-       return "0B"
+      return "0B"
     size_name = ("B", "KiB", "MiB", "GiB", "TiB", "PiB", "EiB", "ZiB", "YiB")
     i = int(math.floor(math.log(_bytes, 1024)))
     p = math.pow(1024, i)

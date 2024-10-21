@@ -148,3 +148,7 @@ class LoggingUtility(TimeUtility):
 
   log_fail = log_critical
   emergency = log_critical
+
+  def error_traceback(self, _error):
+    self.require('traceback', 'TRACEBACK')
+    self.TRACEBACK.print_tb(_error.__traceback__)

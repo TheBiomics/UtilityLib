@@ -2,11 +2,51 @@ from pathlib import Path
 import os as OS, time as TIME
 
 class EntityPath(Path):
+  """
+  A versatile extension of Python's built-in `Path` class to simplify and enhance file and directory handling.
+
+  Key Features:
+  --------------
+  1. **Extended Operators**: Implements custom operators (`//`, `%`, `-`, `+`) for intuitive path manipulation.
+      - `//` (Floor division): Splits the path into segments based on integer or string input.
+      - `%` (Modulo): Allows dynamic string formatting within paths.
+      - `-` (Subtraction): Removes segments from the path, either by an index or up to a matching string.
+      - `+` (Addition): Concatenates new path components easily.
+
+  2. **Search and Match**: Provides methods for pattern matching and file type identification.
+      - Methods like `search`, `has`, and `get_match` allow users to quickly find files or directories using flexible patterns.
+
+  3. **File and Directory Operations**: Simplifies common filesystem tasks like reading, writing, moving, copying, and deleting files or directories.
+      - Methods for safely deleting files (`delete` with `force_delete`).
+      - List all files, directories, or both using `list_files`, `list_dirs`, or `list_items`.
+      - Quick read/write utilities like `read_text`, `write_text`, `head`, and `tail` for file content manipulation.
+
+  4. **Metadata and Stats**: Efficiently retrieve file or directory metadata.
+      - Properties like `size`, `permission`, `created`, `updated`, and `hash` provide quick access to key attributes.
+      - Comprehensive stat retrieval via `stats` for access, modification, and creation times.
+
+  5. **Compression Detection**: Automatically detect if a file is compressed, based on file extension (`is_gz`).
+
+  6. **Path Formatting**: Methods like `rel_path`, `parent`, and `full_path` make it easy to convert paths to relative, parent, or absolute forms.
+
+  Additional Utilities:
+  ---------------------
+  - `validate`: Creates the file or directory if it doesn't exist.
+  - `move` and `copy`: Move or copy files and directories to new locations with automatic parent directory creation if necessary.
+  - `get_hash`: Calculate file or directory hash using common algorithms like `sha256` and `md5` for integrity checks.
+
+  This class is designed to make filesystem operations more intuitive and reduce repetitive boilerplate code, improving readability and efficiency in path manipulation tasks.
+  """
+
+
   _flavour = Path('.')._flavour
   force_delete = False
 
-  def __new__(cls, *args, **kwargs):
-    return super().__new__(cls, *args, **kwargs)
+  def __new__(self, *args, **kwargs):
+    args = list(args)
+    if args:
+      args[0] = str(Path(args[0]).expanduser())
+    return super().__new__(self, *args, **kwargs)
 
   def len(self):
     return len(str(self))
@@ -128,7 +168,7 @@ class EntityPath(Path):
       else:
         with self.open() as _f:
           for _ in range(int(num_lines)):
-            yield next(_f).strip()
+            yield next(_f)
 
     except StopIteration:
       pass
@@ -163,7 +203,7 @@ class EntityPath(Path):
 
       _block_counter -= 1
 
-    _res_lines = _fh.readlines()
+    _res_lines = _fh._read_lines()
     return _res_lines[-lines:]
 
   def _read_file(self, method=None):
@@ -375,7 +415,7 @@ class EntityPath(Path):
   def rel_path(self, _path=None):
     """Return the relative path from the current working directory."""
     try:
-      return (self).resolve().relative_to(_path or Path.cwd())
+      return (self.full_path).relative_to(_path or Path.cwd())
     except:
       return self
 
@@ -392,9 +432,6 @@ class EntityPath(Path):
 
   def upper(self):
     return str(self).upper()
-
-  def __add__(self, what=''):
-    return self / what
 
   _stats = None
 
@@ -427,3 +464,81 @@ class EntityPath(Path):
     return TIME.ctime(self.stats.st_mtime)
 
   modified = updated
+
+  def __add__(self, what=''):
+    return self / what
+
+  def __mod__(self, what=''):
+    """Modulo operand operation on EntityPath"""
+    _self_str = self.full_path
+
+    try:
+      return EntityPath(_self_str % str(what))
+    except TypeError as _e:
+      print(f"TypeError: Incorrect format argument passed: {_e}")
+      return None
+    except ValueError as _e:
+      print(f"ValueError: Value mismatch in format: {_e}")
+      return None
+    except Exception as _e:
+      print(f"Unexpected error occurred: {_e}")
+      return None
+
+  def __floordiv__(self, what):
+    """Flood Division (// operator) to return based on str or int"""
+    if isinstance(what, (int, float)):
+      what = int(what)
+      try:
+        _path_segments = self.parts[:what]
+        _remainder_segments = self.parts[what:]
+        return EntityPath(*_path_segments), EntityPath(*_remainder_segments)
+      except Exception as e:
+        print(f"Error occurred during path division: {e}")
+        return None, None
+    elif isinstance(what, str):
+      try:
+        _guess_full_segment = [*filter(lambda _x: what in _x or what in _x, self.parts)]
+        _idx = self.parts.index(_guess_full_segment[0]) # Consider first part only
+        _rel_path = self.relative_to(*self.parts[:_idx])
+        return EntityPath(_rel_path)
+      except ValueError:
+        print(f"Error: '{what}' not found in path.")
+        return None
+      except Exception as e:
+        print(f"Error occurred while processing string input: {e}")
+        return None
+    else:
+      raise TypeError("Unsupported operand type for //: must be 'int' or 'str'")
+
+  def __sub__(self, what):
+    """Subtraction operator (-) for removing segments from a path."""
+    if isinstance(what, (int, float)):
+      what = int(what)
+      try:
+        # If integer, remove the last `what` segments from the path
+        if what > 0:
+          _remaining_segments = self.parts[:-what]
+          return EntityPath(*_remaining_segments)
+        else:
+          raise ValueError("Integer input must be greater than zero.")
+      except Exception as e:
+        print(f"Error during path subtraction with int: {e}")
+        return None
+
+    elif isinstance(what, (str, EntityPath)):
+      what = str(what)
+      try:
+        # If string, remove all leading segments including the match
+        _guess_full_segment = [*filter(lambda _x: what in _x or what in _x, self.parts)]
+        _idx = self.parts.index(_guess_full_segment[0])
+        _remaining_segments = self.parts[_idx + 1:]
+        return EntityPath(*_remaining_segments)
+      except ValueError:
+        print(f"Error: '{what}' not found in path.")
+        return None
+      except Exception as e:
+        print(f"Error during path subtraction with string: {e}")
+        return None
+
+    else:
+      raise TypeError("Unsupported operand type for -: must be 'int' or 'str'")

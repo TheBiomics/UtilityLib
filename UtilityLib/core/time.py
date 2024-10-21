@@ -85,8 +85,8 @@ class TimeUtility(BaseUtility):
 
   def sleep_random(self, *args, **kwargs):
     """Sleep for random seconds between `min|0` and `max|1`."""
-    _min = kwargs.get("min", args[0] if len(args) > 0 else 1)
-    _max = kwargs.get("max", args[1] if len(args) > 0 else 6)
+    _min = kwargs.get("min", args[0] if len(args) > 0 else 0)
+    _max = kwargs.get("max", args[1] if len(args) > 1 else 6)
 
     self.require("random", "RANDOM")
     _duration = self.RANDOM.uniform(float(_min), float(_max))
