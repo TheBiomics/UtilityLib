@@ -28,20 +28,35 @@ class DatabaseUtility(CommandUtility):
     return self._table_info
 
   def connect_mysql(self, *args, **kwargs):
+    """
+    Connect with MySQL Database using sqlalchemy
+
+      :param db_user:
+      :param db_password:
+      :param db_name:
+      :param db_host:
+      :param db_port:
+      :param db_params:
+
+    :return: engine property
+    """
     # My SQL Connection
     # create_engine(..., execution_options={"isolation_level": "REPEATABLE READ"},..)
 
     self.__mysql_params = {
-      "db_user": args[0] if len(args) > 0 else kwargs.get("db_user"),
-      "db_password": args[1] if len(args) > 1 else kwargs.get("db_password", ""),
-      "db_name": args[2] if len(args) > 2 else kwargs.get("db_name"),
-      "db_host": args[3] if len(args) > 3 else kwargs.get("db_host", "localhost"),
+      "db_user": kwargs.get("db_user", args[0] if len(args) > 0 else None),
+      "db_password": kwargs.get("db_password", args[1] if len(args) > 1 else ""),
+      "db_name": kwargs.get("db_name", args[2] if len(args) > 2 else None),
+      "db_host": kwargs.get("db_host", args[3] if len(args) > 3 else "localhost"),
+      "db_port": kwargs.get("db_port", args[4] if len(args) > 4 else "3306"),
+      "db_params": kwargs.get("db_params", args[5] if len(args) > 5 else {}),
     }
     self.__mysql_params.update(kwargs)
     self.update_attributes(self, self.__mysql_params)
     if self.engine is None and self.db_user is not None and self.db_name is not None:
       from sqlalchemy import create_engine
-      self.engine = create_engine("mysql+pymysql://" + self.db_user + ":" + self.db_password + "@" + self.db_host + "/" + self.db_name)
+      _engine_uri = f"mysql+pymysql://{self.db_user}:{self.db_password}@{self.db_host}:{self.db_port}/{self.db_name}"
+      self.engine = create_engine(_engine_uri, **self.db_params)
     return self.engine
 
   def connect_sqlite(self, *args, **kwargs):

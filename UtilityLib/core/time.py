@@ -82,8 +82,8 @@ class TimeUtility(BaseUtility):
 
   @property
   def time_stamp(self):
-    """Timestamp rounded off e.g., 1729927233"""
-    return int(self.ts_us)
+    """Timestamp in YYYYMMDDHHMMSS format."""
+    return f"{self.year}{self.month:02}{self.day:02}{self.hour:02}{self.minute:02}{self.second:02}"
 
   timestamp = time_stamp
 

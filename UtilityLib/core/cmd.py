@@ -27,14 +27,16 @@ class CommandUtility(LoggingUtility):
 
     :return: List of command parts.
     """
-    _command = list(args)
+    _command = [*args]
 
     for _key, _value in kwargs.items():
-      _command.append(f"{_key}")
-      if isinstance(_value, (list, tuple, set)):
-        _command.extend(list(_value))
-      else:
-        _command.append(_value)
+      _command = [*_command, f"{_key}"]
+      if isinstance(_value, (dict)):
+        _value = [self._format_command(**_value)]
+      elif isinstance(_value, (str, int, float)):
+        _value = [_value]
+
+      _command = [*_command, *_value]
 
     return list(map(str, _command))
 
@@ -65,6 +67,8 @@ class CommandUtility(LoggingUtility):
     """
     Run a command and capture the output.
 
+    # shell=True for commands such as git
+
     :param command: The command to run.
     :param newlines: Whether to treat the output as text with newlines.
     :return: The output of the command.
@@ -78,7 +82,7 @@ class CommandUtility(LoggingUtility):
           "check": kwargs.pop('check', None),
           "shell": kwargs.pop('shell', None),
           "capture_output": kwargs.pop('text', True),
-          "text": kwargs.pop('text', None),
+          "text": kwargs.pop('newlines', None),
         })
 
     if not isinstance(_cmd_params, (dict)):

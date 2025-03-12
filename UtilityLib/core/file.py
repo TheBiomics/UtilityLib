@@ -84,7 +84,7 @@ class FileSystemUtility(DatabaseUtility):
     """
 
     _source = args[0] if len(args) > 0 else kwargs.get("source")
-    _format = args[1] if len(args) > 1 else kwargs.get("format", "tgz")
+    _format = args[1] if len(args) > 1 else kwargs.get("format", "zip")
     _destination = args[2] if len(args) > 2 else kwargs.get("destination", f"{_source}.{_format}")
 
     _format_map = {
@@ -100,10 +100,13 @@ class FileSystemUtility(DatabaseUtility):
 
     _shutil_format = _format_map.get(_format, 'gztar')
 
-    _base_name = self.file_name(_destination, with_dir=True, num_ext=2)
-    _root_dir = self.file_dir(_source)
-    _base_dir = self.file_name(_source)
-    return self.SHUTIL.make_archive(_base_name, _shutil_format, _root_dir, _base_dir)
+    _kwargs = {
+      "base_name": self.file_name(_destination, with_dir=True, num_ext=1),
+      "root_dir": self.file_dir(_source),
+      "base_dir": self.file_name(_source),
+      "format": _shutil_format,
+    }
+    return self.SHUTIL.make_archive(**_kwargs)
 
   compress_dir = _compress_dir
   compress_zip = _compress_dir
@@ -119,7 +122,7 @@ class FileSystemUtility(DatabaseUtility):
       args = list(args)
       args[1] = _format
 
-    self._compress_dir(*args, **kwargs)
+    return self._compress_dir(*args, **kwargs)
 
   to_tgz = _compress_dir_to_tgz
   tgz = _compress_dir_to_tgz
@@ -416,7 +419,7 @@ class FileSystemUtility(DatabaseUtility):
       self.log_error(f'{_path} is neither a dir or file.')
 
   def _dir_file_inventory(self, *args, **kwargs):
-    _path = kwargs.get('path', args[0] if len(args) > 0 else None)
+    _path = kwargs.get('path', args[0] if len(args) > 0 else self.path_base)
 
     _path = EntityPath(_path)
     _ustamp = str(self.timestamp)[:10]
