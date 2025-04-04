@@ -959,6 +959,24 @@ class FileSystemUtility(DatabaseUtility):
 
     return _sizes[0] if _flag_is_single else _sizes
 
+  session_request = None
+  session_response = None
+  def set_request_session(self, *args, **kwargs):
+    """Sets session for requests
+
+    Returns:
+      session:
+    """
+    _headers = kwargs.get("headers", args[1] if len(args) > 1 else {})
+
+    _default_headers = {'User-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.36'}
+    _default_headers.update(_headers)
+
+    self.require("requests", "REQUESTS")
+    self.session_request = self.REQUESTS.Session()
+    self.session_request.headers.update(_default_headers)
+    return self.session_request
+
   def _GET_URL_CONTENT(self, *args, **kwargs):
     """
       @function
@@ -989,10 +1007,8 @@ class FileSystemUtility(DatabaseUtility):
     _overwrite = kwargs.get("overwrite", args[3] if len(args) > 3 else False)
     _form_values = kwargs.get("form_values", args[4] if len(args) > 4 else None)
     _headers = kwargs.get("headers", args[5] if len(args) > 5 else {})
-    _method = kwargs.get("method", args[6] if len(args) > 6 else "get")
+    _method: str = kwargs.get("method", args[6] if len(args) > 6 else "get")
 
-    _default_headers = {'User-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.36'}
-    _default_headers.update(_headers)
 
     if not _overwrite and self.check_path(_destination):
       self.log_warning(f"{_url} exists at {_destination}.")
@@ -1003,22 +1019,20 @@ class FileSystemUtility(DatabaseUtility):
       _return_text = True
 
     try:
-      self.require("requests", "REQUESTS")
-      _session = self.REQUESTS.Session()
-      _session.headers.update(_default_headers)
+      _session = self.set_request_session(headers=_headers)
       self.log_info(f"Downloading content from {_url}.")
 
-      if _method == "post":
-        _response = _session.post(_url, stream=True, json=_form_values, allow_redirects=True)
+      if str(_method).lower() == "post":
+        self.session_response = _session.post(_url, stream=True, json=_form_values, allow_redirects=True)
       else:
-        _response = _session.get(_url, stream=True, data=_form_values, allow_redirects=True)
+        self.session_response = _session.get(_url, stream=True, data=_form_values, allow_redirects=True)
 
       if _destination:
         kwargs.pop("content", None)
         kwargs.pop("destination", None)
-        self.write(_destination, _response.content, **kwargs)
+        self.write(_destination, self.session_response.content, **kwargs)
       if _return_text:
-        return _response.text
+        return self.session_response.text
     except:
       self.log_warning(f"Normal procedure failed. Trying alternate method 'urlretrieve'.")
       self.download_content(_url, _destination)

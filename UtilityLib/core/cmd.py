@@ -40,6 +40,49 @@ class CommandUtility(LoggingUtility):
 
     return list(map(str, _command))
 
+  def cmd_bg(self, *args, **kwargs):
+    """
+    Run a method in background using ThreadPoolExecutor.
+
+    If the first argument is callable, it is used as the function to execute.
+    Otherwise, self.cmd_run is used with all provided arguments.
+
+    :param args: If first arg is callable, it's the function to run. Otherwise all args are passed to self.cmd_run.
+    :param kwargs: Keyword arguments for the function.
+    :return: A Future object representing the execution of the function.
+
+    Usage:
+      # Run an arbitrary function in background
+      future = cmd_util.cmd_bg(some_function, arg1, arg2, kwarg1='value')
+
+      # Run cmd_run in background (default)
+      future = cmd_util.cmd_bg('echo', 'Hello')  # Equivalent to cmd_run('echo', 'Hello')
+    """
+
+    if not hasattr(self, 'thread_pool') or self.thread_pool is None:
+      self.init_multiprocessing()
+
+    # Determine if the first arg is a callable function
+    if args and callable(args[0]):
+      func = args[0]
+      func_args = args[1:]
+    else:
+      func = self.cmd_run
+      func_args = args
+
+    func_name = getattr(func, '__name__', 'anonymous function')
+
+    self.log_debug(f"CMD_010: Running function '{func_name}' in background")
+    _future = self.thread_pool.submit(func, *func_args, **kwargs)
+    self.future_objects.append(_future)
+    return _future
+
+  func_bg = cmd_bg
+  bg_func = cmd_bg
+
+  command_background = cmd_bg
+  bg_command = cmd_bg
+
   def cmd_call(self, *args, **kwargs):
     """
     Call a command without capturing output.
@@ -113,6 +156,7 @@ class CommandUtility(LoggingUtility):
   cmd_call_mock = cmd_run_mock
   cmd_call_echo = cmd_run_mock
 
+  # CLI Management
   def flatten_args(self, *args, **kwargs):
     _args = args[0] if len(args) > 0 else kwargs.get("mapping", [])
     _flattened = {}
