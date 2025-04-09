@@ -73,9 +73,13 @@ class CommandUtility(LoggingUtility):
     func_name = getattr(func, '__name__', 'anonymous function')
 
     self.log_debug(f"CMD_010: Running function '{func_name}' in background")
-    _future = self.thread_pool.submit(func, *func_args, **kwargs)
-    self.future_objects.append(_future)
-    return _future
+    try:
+      _future = self.thread_pool.submit(func, *func_args, **kwargs)
+      self.future_objects.append(_future)
+      return _future
+    except Exception as e:
+      self.log_error(f"CMD_011: Failed to run function '{func_name}' in background: {e}")
+      return None
 
   func_bg = cmd_bg
   bg_func = cmd_bg

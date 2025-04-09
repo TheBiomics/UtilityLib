@@ -12,6 +12,7 @@ class FileSystemUtility(DatabaseUtility):
   def _backup_file(self, *args, **kwargs):
     _path_file = kwargs.get('path_file', args[0] if len(args) > 0 else None)
     _path_backup = kwargs.get('path_backup', args[1] if len(args) > 1 else None)
+    _flag_compress = kwargs.get('flag_compress', args[2] if len(args) > 2 else True)
 
     _path_file = EntityPath(_path_file)
 
@@ -33,7 +34,10 @@ class FileSystemUtility(DatabaseUtility):
 
     _path_file.copy(_path_backup)
 
-    return _path_backup.exists()
+    if _flag_compress:
+      return self.gz(_path_backup, flag_move=True)
+
+    return _path_backup
 
   backup = _backup_file
   create_file_backup = _backup_file
@@ -45,7 +49,7 @@ class FileSystemUtility(DatabaseUtility):
     _path_backup = kwargs.get('path_backup', args[1] if len(args) > 1 else _path_file if _path_file.is_dir() else _path_file.parent())
     _path_backup = EntityPath(_path_backup)
 
-    return _path_backup.search(f"{_path_file.name}*bkup")
+    return _path_backup.search(f"{_path_file.name}*bkup*")
 
   def clean_file_backups(self, *args, **kwargs):
     _all = kwargs.get('all', False)
@@ -147,12 +151,15 @@ class FileSystemUtility(DatabaseUtility):
     self.flag_move = kwargs.get("flag_move", args[1] if len(args) > 1 else False)
     self.require("gzip", "GZip")
 
-    with open(self.path_file, 'rb') as _f_in, self.GZip.open(f"{self.path_file}.gz", 'wb') as _f_out:
+    _path_gzip = f"{self.path_file}.gz"
+    with open(self.path_file, 'rb') as _f_in, self.GZip.open(_path_gzip, 'wb') as _f_out:
       _f_out.writelines(_f_in)
 
     if self.flag_move == True:
       # delete file to simulate moving a file to gz compression
       self.delete_path(self.path_file)
+
+    return _path_gzip
 
   compress_gz = _compress_file_to_gzip
   to_gz = _compress_file_to_gzip
