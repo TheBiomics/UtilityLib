@@ -94,14 +94,22 @@ class CommandUtility(LoggingUtility):
     :param command: The command to run.
     :return: The return code of the command.
     """
-    _cwd = kwargs.pop('cwd', None)
+    _cmd_params = kwargs.pop('cmd_params', {
+          "universal_newlines": kwargs.pop('newlines', True),
+          "cwd": kwargs.pop('cwd', None),
+          "check": kwargs.pop('check', None),
+          "shell": kwargs.pop('shell', None),
+          "capture_output": kwargs.pop('text', True),
+          "text": kwargs.pop('newlines', None),
+        })
+    _cmd_params = {k: v for k, v in _cmd_params.items() if v is not None}
     _command = self._format_command(*args, **kwargs)
     _command_str = ' '.join(_command)
 
     self.require('subprocess', 'SubProcess')
     try:
       self.log_debug(f"CMD_007: Calling command: {_command_str}")
-      _result = self.SubProcess.call(_command, cwd=_cwd)
+      _result = self.SubProcess.call(_command, **_cmd_params)
       return _result
     except Exception as _e:
       self.log_error(f"Command '{_command_str}' failed with error: {_e}")

@@ -90,6 +90,7 @@ class FileSystemUtility(DatabaseUtility):
     _source = args[0] if len(args) > 0 else kwargs.get("source")
     _format = args[1] if len(args) > 1 else kwargs.get("format", "zip")
     _destination = args[2] if len(args) > 2 else kwargs.get("destination", f"{_source}.{_format}")
+    _flag_move = args[3] if len(args) > 3 else kwargs.get("flag_move", False)
 
     _format_map = {
         "tar.gz": 'gztar',
@@ -110,7 +111,12 @@ class FileSystemUtility(DatabaseUtility):
       "base_dir": self.file_name(_source),
       "format": _shutil_format,
     }
-    return self.SHUTIL.make_archive(**_kwargs)
+    _result = self.SHUTIL.make_archive(**_kwargs)
+
+    if _flag_move:
+      self.delete_path(_source)
+
+    return _result;
 
   compress_dir = _compress_dir
   compress_zip = _compress_dir
