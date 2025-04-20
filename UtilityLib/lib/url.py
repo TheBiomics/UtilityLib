@@ -70,7 +70,7 @@ class EntityURL:
     self._fetch_response()
     if not self._response:
       return False
-    return self._response.status_code < 300 or self._response.status_code >= 500
+    return self._response.status_code != 404
 
   def __str__(self):
     return self._URL

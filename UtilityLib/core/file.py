@@ -972,7 +972,8 @@ class FileSystemUtility(DatabaseUtility):
 
     return _sizes[0] if _flag_is_single else _sizes
 
-  session_request = None
+  session          = None
+  session_request  = None
   session_response = None
   def set_request_session(self, *args, **kwargs):
     """Sets session for requests
@@ -1002,8 +1003,8 @@ class FileSystemUtility(DatabaseUtility):
       :param return_text|2: (bool)
       :param overwrite|3: (False|bool)= forces to download the content if file already exists
       :param form_values|4: (None|dict)= values to be submitted while downloading file from url USING GET METHOD
-      :param headers|5: headers to set for downloading files
-      :param method|6: ("get"|"post")= method of downloading file
+      :param headers: headers to set for downloading files
+      :param method: ("get"|"post")= method of downloading file
 
       @returns
       :return: bool
@@ -1014,14 +1015,22 @@ class FileSystemUtility(DatabaseUtility):
       @ToDo:
       * Use wget library for the purpose
     """
-    _url = kwargs.get("url", args[0] if len(args) > 0 else None)
-    _destination = kwargs.get("destination", args[1] if len(args) > 1 else None)
-    _return_text = kwargs.get("return_text", args[2] if len(args) > 2 else False)
-    _overwrite = kwargs.get("overwrite", args[3] if len(args) > 3 else False)
-    _form_values = kwargs.get("form_values", args[4] if len(args) > 4 else None)
-    _headers = kwargs.get("headers", args[5] if len(args) > 5 else {})
-    _method: str = kwargs.get("method", args[6] if len(args) > 6 else "get")
+    _url          = kwargs.get("url", args[0] if len(args) > 0 else None)
+    _destination  = kwargs.get("destination", args[1] if len(args) > 1 else None)
+    _return_text  = kwargs.get("return_text", args[2] if len(args) > 2 else False)
+    _overwrite    = kwargs.get("overwrite", args[3] if len(args) > 3 else False)
+    _form_values  = kwargs.get("form_values", args[4] if len(args) > 4 else None)
+    _headers      = kwargs.get("headers", {})
+    _method: str  = kwargs.get("method", "get")
+    _request_args = kwargs.get("request_args", {})
 
+    _default_request_args = {
+        "stream"         : True,
+        "allow_redirects": True,
+        "headers"        : _headers,
+      }
+
+    _default_request_args.update(_request_args)
 
     if not _overwrite and self.check_path(_destination):
       self.log_warning(f"{_url} exists at {_destination}.")
@@ -1032,13 +1041,18 @@ class FileSystemUtility(DatabaseUtility):
       _return_text = True
 
     try:
-      _session = self.set_request_session(headers=_headers)
+      self.session = self.set_request_session(headers=_headers)
       self.log_info(f"Downloading content from {_url}.")
 
       if str(_method).lower() == "post":
-        self.session_response = _session.post(_url, stream=True, json=_form_values, allow_redirects=True)
+        if _form_values:
+          _default_request_args.update({"json": _form_values})
+        self.session_response = self.session.post(_url, **_default_request_args)
       else:
-        self.session_response = _session.get(_url, stream=True, data=_form_values, allow_redirects=True)
+        if _form_values:
+          _default_request_args.update({"data": _form_values})
+
+        self.session_response = self.session.get(_url, **_default_request_args)
 
       if _destination:
         kwargs.pop("content", None)
