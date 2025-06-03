@@ -85,7 +85,6 @@ class BrowserManager(ProjectManager):
     if _file_path:
       self.write(_file_path, _html)
 
-    self.wait("delay")
     return _html
 
   def add_option(self, option):

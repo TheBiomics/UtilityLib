@@ -318,6 +318,7 @@ class DataUtility(FileSystemUtility):
 
   from_excel = _PD_read_excel
   read_excel = _PD_read_excel
+
   pd_excel = _PD_DF_to_Excel # Will be migrated to read excel instead of reading i.e., pd_excel = from_excel
 
   def sync_excel_sheet(self, *args, **kwargs):
@@ -473,7 +474,7 @@ class DataUtility(FileSystemUtility):
         if _what in _i:
           _result.append(_i)
     elif isinstance(_data, (dict)):
-      for _key, _value in _data:
+      for _key, _value in _data.items():
         ...
     return _result
 

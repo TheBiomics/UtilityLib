@@ -1,5 +1,6 @@
 from pathlib import Path
 import os as OS, time as TIME
+from itertools import islice
 
 class EntityPath(Path):
   """
@@ -579,3 +580,42 @@ class EntityPath(Path):
 
     else:
       raise TypeError("Unsupported operand type for -: must be 'int' or 'str'")
+
+  space =  '    '
+  branch = '│   '
+  tee =    '├── '
+  last =   '└── '
+
+  def tree(self, level: int=-1, limit_to_directories: bool=False, length_limit: int=1000):
+    """Prints/Given a directory Path object print a visual tree structure
+
+    Ref: https://stackoverflow.com/a/59109706/6213452
+    """
+    dir_path = Path(self) # accept string coerceable to Path
+    files = 0
+    directories = 0
+    def inner(dir_path: Path, prefix: str='', level=-1):
+      nonlocal files, directories
+      if not level:
+        return # 0, stop iterating
+      if limit_to_directories:
+        contents = [d for d in dir_path.iterdir() if d.is_dir()]
+      else:
+        contents = list(dir_path.iterdir())
+      pointers = [self.tee] * (len(contents) - 1) + [self.last]
+      for pointer, path in zip(pointers, contents):
+        if path.is_dir():
+          yield prefix + pointer + path.name
+          directories += 1
+          extension = self.branch if pointer == self.tee else self.space
+          yield from inner(path, prefix=prefix+extension, level=level-1)
+        elif not limit_to_directories:
+          yield prefix + pointer + path.name
+          files += 1
+    print(dir_path.name)
+    iterator = inner(dir_path, level=level)
+    for line in islice(iterator, length_limit):
+        print(line)
+    if next(iterator, None):
+        print(f'... length_limit, {length_limit}, reached, counted:')
+    print(f'\n{directories} directories' + (f', {files} files' if files else ''))

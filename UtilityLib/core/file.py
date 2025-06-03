@@ -153,24 +153,32 @@ class FileSystemUtility(DatabaseUtility):
     :param flag_move|1: Default False
 
     """
-    self.path_file = kwargs.get("path_file", args[0] if len(args) > 0 else None)
-    self.flag_move = kwargs.get("flag_move", args[1] if len(args) > 1 else False)
+    _path_file = kwargs.get("path_file", args[0] if len(args) > 0 else None)
+    _path_destination = kwargs.get("path_destination", args[1] if len(args) > 1 else False)
     self.require("gzip", "GZip")
 
-    _path_gzip = f"{self.path_file}.gz"
-    with open(self.path_file, 'rb') as _f_in, self.GZip.open(_path_gzip, 'wb') as _f_out:
+    _path_file = EntityPath(_path_file)
+    if not _path_file.exists():
+      return None
+
+    if not _path_destination:
+      _path_destination = _path_file + '.gz'
+
+    _path_destination = EntityPath(_path_destination)
+
+    if _path_destination.exists():
+      self.log_warning(f"{_path_destination} already exists. Cannot overwrite.")
+      return None
+
+    with open(_path_file, 'rb') as _f_in, self.GZip.open(_path_destination, 'wb') as _f_out:
       _f_out.writelines(_f_in)
 
-    if self.flag_move == True:
-      # delete file to simulate moving a file to gz compression
-      self.delete_path(self.path_file)
+    return _path_destination
 
-    return _path_gzip
-
-  compress_gz = _compress_file_to_gzip
-  to_gz = _compress_file_to_gzip
-  gz = _compress_file_to_gzip
-  gzip = _compress_file_to_gzip
+  compress_gz      = _compress_file_to_gzip
+  to_gz            = _compress_file_to_gzip
+  gz               = _compress_file_to_gzip
+  gzip             = _compress_file_to_gzip
   compress_to_gzip = _compress_file_to_gzip
 
   def _add_files_to_tar_gzip(self, *args, **kwargs):
