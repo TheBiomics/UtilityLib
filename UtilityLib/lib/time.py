@@ -41,7 +41,14 @@ class DeltaTime(PD.Timedelta):
     if _seconds:
       _string.append(f"{_seconds} second{'s' if abs(_seconds) > 1 else ''}")
 
-    return ", ".join(_string)
+    if len(_string) == 0:
+      return "0 seconds"
+    elif len(_string) == 1:
+      return _string[0]
+    elif len(_string) == 2:
+      return f"{_string[0]} and {_string[1]}"
+    else:
+      return f"{', '.join(_string[:-1])}, and {_string[-1]}"
 
 class EntityTime():
   """EntityTime: To manage time and provide acessary methods
@@ -50,8 +57,9 @@ class EntityTime():
   Extend PD.Timestamp???
   """
   DeltaTime = DeltaTime
+  DateTime = _DT
   format = '%Y%m%d%H%M%S'
-  PDTS = PD.Timestamp
+  Timestamp = PD.Timestamp
 
   def __init__(self, *args, **kwargs):
     """

@@ -3,6 +3,10 @@ from ..lib.time import EntityTime
 
 class TimeUtility(BaseUtility):
   DeltaTime = EntityTime.DeltaTime
+  DateTime  = EntityTime.DateTime
+  Timestamp = EntityTime.Timestamp
+  EntityTime = EntityTime
+
   def __init__(self, *args, **kwargs):
     __defaults = {
         "duration": 3,
@@ -11,69 +15,70 @@ class TimeUtility(BaseUtility):
     super().__init__(**__defaults)
     self.time_start()
 
-  @property
-  def datetime(self):
-    """Time format: 12:54:54"""
-    return EntityTime()
-
-  @property
-  def deltatime(self):
-    """Time format: 12:54:54"""
-    return EntityTime().DeltaTime
+  def now(self, format=None):
+    """Get current time."""
+    _now = self.DateTime.now()
+    if format:
+      _now = _now.strftime(format)
+    return _now
 
   @property
   def time(self):
-    """Time format: 12:54:54"""
-    return str(EntityTime().time)[:-7]
+    """Time with custom format"""
+    return self.now(format="%H:%M:%S")
 
   @property
   def time_ms(self):
     """Time format: 12:54:54.111"""
-    return str(EntityTime().time)[:-3]
+    return self.time_us[:-3]
 
   @property
   def time_us(self):
     """Time format: 12:54:54.111111"""
-    return str(EntityTime().time)
+    return self.now(format="%H:%M:%S.%f")
 
   @property
   def date(self):
     """Date format: 2024-10-24"""
-    return str(EntityTime().date)
+    return self.now(format="%Y-%m-%d")
 
   @property
   def day(self):
-    return self.datetime._datetime.day
+    return self.now().day
 
   @property
   def weekday(self):
-    return self.datetime._datetime.strftime("%A")
+    return self.now(format="%A")
+
+  @property
+  def week(self):
+    return self.now().isocalendar()[1]
 
   day_name = weekday
 
   @property
   def month(self):
-    return self.datetime._datetime.month
+    return self.now().month
 
   @property
   def month_name(self):
-    return self.datetime._datetime.strftime('%B')
+    return self.now().strftime('%B')
 
   @property
   def year(self):
-    return self.datetime._datetime.year
+    return self.now().year
 
   @property
   def hour(self):
-    return self.datetime._datetime.hour
+    return self.now().hour
 
   @property
   def minute(self):
-    return self.datetime._datetime.minute
+    return self.now().minute
 
   @property
   def second(self):
-    return self.datetime._datetime.second
+    return self.now().second
 
   @property
   def ts_us(self):
