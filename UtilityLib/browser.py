@@ -1,8 +1,6 @@
 from .project import ProjectManager
 
-from seleniumwire import webdriver as WebDriver # pip install selenium-wire
-from selenium.webdriver.chrome.options import Options as ChromeOptions
-from selenium.webdriver.chrome.service import Service as ChromeService
+from seleniumwire import webdriver as WebDriver # pip install selenium-wire webdriver-manager mechanicalsoup
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.support import ui, expected_conditions # WebDriverWait, Select
@@ -17,6 +15,7 @@ class BrowserManager(ProjectManager):
     self.wd_by = By
     self.wd_ec = expected_conditions
     self.wd_keys = Keys
+    self.cmd_run('pip install selenium-wire webdriver-manager mechanicalsoup')
     self.set_selectors()
     super().__init__(**kwargs)
 
@@ -115,6 +114,7 @@ class BrowserManager(ProjectManager):
     try:
       if browser_type.lower() == 'chrome':
         from webdriver_manager.chrome import ChromeDriverManager
+        from selenium.webdriver.chrome.service import Service as ChromeService
         self.wd_instance = WebDriver.Chrome(
           options=self.options,
           service=ChromeService(executable_path=ChromeDriverManager().install())
@@ -170,6 +170,7 @@ class ChromeManager(BrowserManager):
   def __init__(self, *args, **kwargs):
     super().__init__(**kwargs)
     if not hasattr(self, 'options'):
+      from selenium.webdriver.chrome.options import Options as ChromeOptions
       self.options = ChromeOptions()  # Ensure options are initialized
     self._set_default_options()
 
@@ -183,14 +184,35 @@ class ChromeManager(BrowserManager):
     super().init_browser('chrome')
 
 class FireFoxManager(BrowserManager):
+  headless = True
+
   def __init__(self, *args, **kwargs):
     super().__init__(**kwargs)
-    if not self.options:
-        self.options = ChromeOptions()  # Ensure options are initialized
+    from selenium.webdriver.firefox.options import Options as FirefoxOptions
+    if not hasattr(self, 'options') or not self.options:
+      self.options = FirefoxOptions()
     self._set_default_options()
 
+  def _set_default_options(self):
+      self.options.add_argument("--width=1920")
+      self.options.add_argument("--height=1080")
+      if self.headless:
+          self.options.add_argument("--headless")
+
   def init_browser(self, *args, **kwargs):
-    super().init_browser('firefox')
+    if hasattr(self, 'wd_instance') and self.wd_instance:
+        return  # Already initialized
+    try:
+      from webdriver_manager.firefox import GeckoDriverManager
+      from selenium.webdriver.firefox.service import Service as FirefoxService
+      self.wd_instance = WebDriver.Firefox(
+        options=self.options,
+        service=FirefoxService(executable_path=GeckoDriverManager().install())
+      )
+      if self.maximized:
+        self.wd_instance.maximize_window()
+    except Exception as e:
+      print(f"Error initializing Firefox browser: {e}")
 
 class BrowserlessManager(ProjectManager):
   browser = None

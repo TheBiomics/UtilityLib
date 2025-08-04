@@ -363,7 +363,7 @@ class DataUtility(FileSystemUtility):
     _it.sort(key=self.digit_only)
     return _it
 
-  def parse_digits(self, *args, **kwargs):
+  def filter_digits(self, *args, **kwargs):
     """Digit parts of a given data
 
       @params
@@ -372,13 +372,30 @@ class DataUtility(FileSystemUtility):
       # Considering data is str
       # Float, int list etc are not tested or handled
     """
-    _string = args[0] if len(args) > 0 else kwargs.get("string")
-    return "".join([_s for _s in str(_string) if _s.isdigit()])
+    _string = kwargs.get("string", args[0] if len(args) > 0 else '')
+    return "".join(filter(str.isdigit, str(_string)))
 
-  digits = parse_digits
-  digit_only = parse_digits
-  parseInt = parse_digits
-  parse_int = parse_digits
+  digits = filter_digits
+  digit_only = filter_digits
+  parseInt = filter_digits
+  parse_int = filter_digits
+  parse_digits = filter_digits
+
+  def filter_alpha(self, *args, **kwargs):
+    """Filter alpha numerics only"""
+    _string = kwargs.get("string", args[0] if len(args) > 0 else '')
+    _string = "".join([char for char in _string if char.isalpha() or char.isspace()])
+
+    # ToDo: Remove multiple spaces
+    return _string
+
+  keep_alpha = filter_alpha
+
+  def filter_alpha(self, *args, **kwargs):
+    """Filter alpha numerics only"""
+    _string = kwargs.get("string", args[0] if len(args) > 0 else '')
+    _string = "".join(filter(str.isalpha, _string))
+    return _string
 
   def re_compile(self, *args, **kwargs):
     _pattern = args[0] if len(args) > 0 else kwargs.get("pattern")
