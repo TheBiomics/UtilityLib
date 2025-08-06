@@ -15,9 +15,14 @@ class BrowserManager(ProjectManager):
     self.wd_by = By
     self.wd_ec = expected_conditions
     self.wd_keys = Keys
-    self.cmd_run('pip install selenium-wire webdriver-manager mechanicalsoup')
+    if not self._are_deps_installed():
+      self.cmd_run('pip install selenium-wire blinker==1.7.0 webdriver-manager mechanicalsoup', shell=True)
     self.set_selectors()
     super().__init__(**kwargs)
+
+  def _are_deps_installed(self):
+    required_imports = ['seleniumwire', 'blinker', 'webdriver_manager', 'mechanicalsoup']
+    return all(self._is_package_installed(pkg) for pkg in required_imports)
 
   def set_selectors(self, *args, **kwargs):
     self.by_id = By.ID

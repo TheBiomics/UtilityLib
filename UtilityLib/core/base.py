@@ -300,6 +300,10 @@ class BaseUtility:
       _spec.loader.exec_module(_module)
       return getattr(_module, _classname)
 
+  def _is_package_installed(self, pkg_import_name):
+    import importlib.util as ILUtil
+    return ILUtil.find_spec(pkg_import_name) is not None
+
   def list_py_classes(self, *args, **kwargs):
     """Lists classes as {class:filename...} pair
     """
