@@ -33,6 +33,7 @@ class EntityURL:
     self._URL = str(self._original_url)
     self.parsed = urlparse(self._URL)
     self._response = None  # Clear cached response as the URL has changed
+    return self
 
   def _fetch_response(self):
     """Fetch and cache the response for the URL."""
@@ -74,6 +75,9 @@ class EntityURL:
 
   def __str__(self):
     return self._URL
+
+  def __repr__(self):
+    return f"{self.__class__.__name__}('{self._URL}')"
 
   @property
   def scheme(self):
@@ -139,15 +143,16 @@ class EntityURL:
     """Reconstruct the URL from its components."""
     return urlunparse(self.parsed)
 
-  def to_https(self):
+  def set_scheme(self, scheme='https'):
     """Convert the scheme from http to https."""
-    if self.scheme == 'http':
-      self.parsed = self.parsed._replace(scheme='https')
-      self._URL = self.url
+    self.parsed = self.parsed._replace(scheme=scheme)
+    self._URL = self.url
     return self
 
-  https = to_https
-  force_https = to_https
+  https       = set_scheme
+  force_https = set_scheme
+  scheme      = set_scheme
+  to_https    = set_scheme
 
   def __add__(self, modification):
     """
@@ -279,3 +284,90 @@ class EntityURL:
       self.parsed = self.parsed._replace(netloc=f"www.{self.netloc}")
       self._URL = self.url
     return self
+
+  def __mod__(self, value):
+    """
+    Allow Python-style formatting on the URL string using the % operator.
+
+    Examples:
+      EntityURL('https://example.com/%s') % 'path' -> https://example.com/path
+      EntityURL('https://example.com/%(id)s') % {'id': 123} -> https://example.com/123
+
+    The method updates the internal parsed/url representation and returns self.
+    """
+    try:
+      formatted = self.url % value
+    except Exception:
+      # If formatting fails, try formatting the original input string
+      try:
+        formatted = str(self._original_url) % value
+      except Exception:
+        # Fall back to no-op and return self unchanged
+        return self
+
+    # Update internal state and parsed components
+    self._URL = formatted
+    self.parsed = urlparse(self._URL)
+    # Clear cached response since URL changed
+    self._response = None
+    return self
+
+  def format(self, *args, **kwargs):
+    """
+    Perform Python `str.format` interpolation on the reconstructed URL.
+
+    Examples:
+      EntityURL('https://example.com/{0}') .format('path') -> https://example.com/path
+      EntityURL('https://example.com/{id}') .format(id=123) -> https://example.com/123
+
+    This method mutates the instance (updates `_URL`, `parsed`, clears `_response`) and returns self.
+    """
+    try:
+      formatted = self.url.format(*args, **kwargs)
+    except Exception:
+      # Fallback to original URL string
+      try:
+        formatted = str(self._original_url).format(*args, **kwargs)
+      except Exception:
+        return self
+
+    self._URL = formatted
+    self.parsed = urlparse(self._URL)
+    self._response = None
+    return self
+
+  def __getitem__(self, key) -> str | list[str]:
+    """Return the query parameter value(s) for `key`.
+
+    - If the parameter is absent, None is returned.
+    - If multiple values exist, a list is returned; otherwise a single value is returned.
+    """
+    qs     = parse_qs(self.parsed.query)
+    values = qs.get(key, None)
+    return values if len(values) != 1 else values[0]
+
+  def __setitem__(self, key, value) -> None:
+    """Set a query parameter. Accepts str, int, or list/tuple of values."""
+    qs = parse_qs(self.parsed.query)
+    if value is None:
+      qs.pop(key, None)
+    else:
+      if isinstance(value, (list, tuple)):
+        qs[key] = list(map(str, value))
+      else:
+        qs[key] = [str(value)]
+    new_query = urlencode(qs, doseq=True)
+    self.parsed = self.parsed._replace(query=new_query)
+    self._URL = self.url
+    self._response = None
+
+  def __delitem__(self, key) -> None:
+    """Remove a query parameter; raises KeyError if missing."""
+    qs = parse_qs(self.parsed.query)
+    if key not in qs:
+      return
+    qs.pop(key, None)
+    new_query = urlencode(qs, doseq=True)
+    self.parsed = self.parsed._replace(query=new_query)
+    self._URL = self.url
+    self._response = None

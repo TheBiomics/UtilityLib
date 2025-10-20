@@ -5,7 +5,7 @@
 [project]
   name = "UtilityLib"
   description = "Python Helper for Repetitive Tasks with File and Data Management"
-  version = "2.19"
+  version = "2.20.1"
   authors = [
     { name="Vishal Kumar Sahu", email="mail@vishalkumarsahu.in" },
   ]
@@ -17,15 +17,18 @@
     'Intended Audience :: Science/Research',
     'Programming Language :: Python :: 3.10',
     'Programming Language :: Python :: 3.11',
-    "Operating System :: OS Independent",
   ]
   dependencies = [
+    'pandas',
+    'tqdm',
+  ]
+
+[project.optional-dependencies]
+  all = [
     'xmltodict',
     'sqlalchemy',
     'psutil',
-    'pandas',
     'seaborn',
-    'tqdm',
     'toml',
     'openpyxl',
     'schedule',

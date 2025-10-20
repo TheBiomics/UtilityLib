@@ -1,22 +1,19 @@
 from functools import lru_cache as CacheMethod
 from contextlib import contextmanager
 from ..lib.obj import ObjDict
+from ..lib.cmd import CMDLib
+from ..lib.path import EntityPath
 from .log import LoggingUtility
 
 class CommandUtility(LoggingUtility):
   def __init__(self, *args, **kwargs):
     super().__init__(**kwargs)
 
-  def is_executable(self, program):
-    return self.cmd_which(program) is not None
-
-  cmd_is_exe = is_executable
-  is_exe = is_executable
-
-  def cmd_which(self, program):
-    return self.SHUTIL.which(program)
-
-  which = cmd_which
+  is_executable = CMDLib.is_exe
+  cmd_is_exe    = CMDLib.which
+  is_exe        = CMDLib.which
+  cmd_which     = CMDLib.which
+  which         = CMDLib.which
 
   def _format_command(self, *args, **kwargs):
     """
@@ -133,11 +130,11 @@ class CommandUtility(LoggingUtility):
 
     _cmd_params = kwargs.pop('cmd_params', {
           "universal_newlines": kwargs.pop('newlines', True),
-          "cwd": kwargs.pop('cwd', None),
-          "check": kwargs.pop('check', None),
-          "shell": kwargs.pop('shell', None),
-          "capture_output": kwargs.pop('text', True),
-          "text": kwargs.pop('newlines', None),
+          "cwd"               : kwargs.pop('cwd', None),
+          "check"             : kwargs.pop('check', None),
+          "shell"             : kwargs.pop('shell', None),
+          "capture_output"    : kwargs.pop('text', True),
+          "text"              : kwargs.pop('newlines', None),
         })
 
     if not isinstance(_cmd_params, (dict)):
@@ -335,9 +332,20 @@ _.queue_final_callback
   _queue_schedule_ref = None
   def queue_final_callback(self, callback=None, *args, **kwargs) -> None:
     if callback is not None and callable(callback):
-      from ..lib.schedule import ScheduleEvent
+      from ..lib.schedule import ScheduleManager
+
       _cb_interval = kwargs.pop("cb_interval", 60)
-      self._queue_schedule_ref = ScheduleEvent(func=self._queue_final_cb_fn_bg_exe, interval=_cb_interval, args=(callback, *args), **kwargs)
+      # Lazily create a ScheduleManager per CommandUtility instance and start it
+      if not hasattr(self, "_schedule_mgr") or self._schedule_mgr is None:
+        self._schedule_mgr = ScheduleManager()
+
+      self._queue_schedule_ref = self._schedule_mgr.add(
+        self._queue_final_cb_fn_bg_exe,
+        interval=_cb_interval,
+        unit="seconds",
+        args=(callback, *args),
+        **kwargs,
+      )
 
   def _queue_final_cb_fn_bg_exe(self, callback, *args, **kwargs) -> None:
     _job_t, _job_d = self.queue_task_status.total, self.queue_task_status.done
@@ -407,21 +415,4 @@ _.queue_final_callback
       "pending": _total - _done, # _fo.done() - _fo.running()
     })
 
-  def sys_open_files(self):
-    """Returns list of open files or open file handles by system"""
-    import psutil as PC
-    _p = PC.Process()
-    return _p.open_files()
-
-  @contextmanager
-  def contextual_directory(self, new_path):
-    """A context manager for changing the current working directory
-    later switches back to the original directory.
-
-    """
-    _old_path = self.OS.getcwd()
-    try:
-      self.OS.chdir(new_path)
-      yield
-    finally:
-      self.OS.chdir(_old_path)
+  sys_open_files = CMDLib.get_open_files

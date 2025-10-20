@@ -1,5 +1,6 @@
 from .db import DatabaseUtility
 from ..lib.path import EntityPath
+from ..lib.file import EntityFile
 
 class FileSystemUtility(DatabaseUtility):
   def __init__(self, *args, **kwargs):
@@ -541,10 +542,16 @@ class FileSystemUtility(DatabaseUtility):
     return _text
 
   def parse_html(self, *args, **kwargs):
-    _text = args[0] if len(args) > 0 else kwargs.get("text")
+    """Parse HTML using BeautifulSoup
+
+      :param 0|markup (str): HTML markup to parse
+      :param 1|parser (str): Parser to use, default is 'html.parser; 'html.parser', 'lxml', 'html5lib''
+    """
+    _markup = kwargs.get("markup", args[0] if len(args) > 0 else '')
+    _parser = kwargs.get("parser", 'html.parser')
 
     from bs4 import BeautifulSoup
-    _html = BeautifulSoup(_text, "html.parser")
+    _html = BeautifulSoup(_markup, _parser)
     return _html
 
   def read_pickle(self, *args, **kwargs):
@@ -587,27 +594,20 @@ class FileSystemUtility(DatabaseUtility):
     return self.parse_html(_content, **kwargs)
 
   def read_html(self, *args, **kwargs):
+    """Read and parse HTML file - DELEGATED TO EntityFile
+    """
     _source = args[0] if len(args) > 0 else kwargs.get("source")
-    _read = self.read_text(_source)
-    _file_content = None
-    if isinstance(_read, (list, tuple, set)):
-      _file_content = "".join(_read)
-    return self.parse_html(_file_content, **kwargs)
+    return EntityFile(_source).read_html(**kwargs)
 
   # added v2.8
-  html = read_html
+  html      = read_html
   from_html = read_html
 
   def read_xml(self, *args, **kwargs):
+    """Read and parse XML file - DELEGATED TO EntityFile
+    """
     _source = kwargs.get("source", args[0] if len(args) > 0 else None)
-    _content = ""
-
-    if self.check_path(_source):
-      from lxml import etree as XMLTree
-      _tree = XMLTree.parse(_source)
-      _content = _tree.getroot()
-    _content = self.xml_to_dict(_content)
-    return _content
+    return EntityFile(_source).read_xml(**kwargs)
 
   def read(self, *args, **kwargs):
     """
@@ -655,18 +655,9 @@ class FileSystemUtility(DatabaseUtility):
   from_text = read_text
 
   def read_json(self, *args, **kwargs):
+    """Read JSON file - DELEGATED TO EntityFile"""
     _file_path = args[0] if len(args) > 0 else kwargs.get("file_path")
-    _res_dict = {}
-
-    if self.check_path(_file_path):
-      _content = self.read_text(_file_path, str)
-      self.require("ast", "AbsSynTree")
-      try:
-        _res_dict = self.JSON.loads(_content)
-      except:
-        _res_dict = self.AbsSynTree.literal_eval(_content)
-
-    return _res_dict
+    return EntityFile(_file_path).read_json(**kwargs)
 
   # added v2.8
   from_json = read_json
@@ -761,34 +752,31 @@ class FileSystemUtility(DatabaseUtility):
   pkl = write_pickle
 
   def write_json(self, *args, **kwargs):
-    """@function
-      Writes dict content as JSON
+    """Write dict content as JSON
 
       @returns
       True|False if file path exists
     """
     _destination = args[0] if len(args) > 0 else kwargs.get("destination")
     _content = args[1] if len(args) > 1 else kwargs.get("content", dict())
-    if isinstance(_content, (dict)):
-      _json_data = self.JSON.dumps(_content, ensure_ascii=False)
-      self.write(_destination, _json_data)
-    return self.check_path(_destination)
+    return EntityFile(_destination).write_json(_content, **kwargs)
 
   save_json = write_json
 
   def write_xml(self, *args, **kwargs):
-    """@function
-      Writes XML string to file
+    """Write XML content to file
 
       @returns
       True|False if file path exists
+
     """
+
     _destination = kwargs.get("destination", args[0] if len(args) > 0 else None)
     _content = kwargs.get("content", args[1] if len(args) > 1 else None)
-    _encoding = kwargs.pop("encoding", args[2] if len(args) > 2 else None)
+    _encoding = kwargs.pop("encoding", args[2] if len(args) > 2 else 'utf-8')
     kwargs['encoding'] = _encoding
-    self.write(_destination, _content, **kwargs)
-    return self.check_path(_destination)
+
+    return EntityFile(_destination).write_xml(_content, **kwargs)
 
   save_xml = write_xml
 

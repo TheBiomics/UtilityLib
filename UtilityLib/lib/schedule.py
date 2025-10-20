@@ -1,82 +1,285 @@
 import threading
 import time
+import uuid
+from typing import Any, Callable, Dict, Iterable, Optional
+
 import schedule
 
-class ScheduleManager:
-  events = {}
-  def __init__(self, *args, **kwargs):
-    ...
-
-  def add(self, *args, **kwargs):
-    _ev_sch = ScheduleEvent(*args, **kwargs)
-    self.events[_ev_sch.func.__name__] = _ev_sch
-    return _ev_sch
-
-  def stop(self, key=None):
-    if key is None:
-      self.stop_all()
-    else:
-      self.events[key].stop()
-
-  def stop_all(self):
-    for _, _ev in self.events.items():
-      _ev.stop()
 
 class ScheduleEvent:
+  """A handle to a scheduled job with pause/resume/stop controls.
+
+  Notes:
+    - Uses a wrapper to count successful runs and to respect pause/limit.
+    - Cancelling removes the job from the manager's scheduler.
   """
-    ### Example
-    def method_x(*args, **kwargs):
-      print(args, kwargs)
-    # Create a scheduled event for method_x to run every 5 minutes
-    _sch_ev = ScheduleEvent(method_x, 5, 'seconds',
-                    1, 2, 3, ...,
-                    kw1=1, kw2=2, ..., limit=9)
-    # do_something
-    _sch_ev.stop()
+
+  def __init__(
+    self,
+    manager: "ScheduleManager",
+    job    : schedule.Job,
+    func   : Callable[..., Any],
+    name   : str,
+    limit  : Optional[int] = None,
+  ) -> None:
+    self._manager  = manager
+    self.job       = job
+    self.func      = func
+    self.name      = name
+    self.limit     = limit
+    self.run_count = 0
+    self.paused    = False
+
+  def pause(self) -> None:
+    self.paused = True
+
+  def resume(self) -> None:
+    self.paused = False
+
+  def stop(self) -> None:
+    # Remove the underlying job from the scheduler and drop from registry
+    try:
+      self._manager._scheduler.cancel_job(self.job)
+    except Exception:
+      pass
+    finally:
+      # Remove all keys pointing to this event (canonical and aliases)
+      try:
+        self._manager._unregister_event(self)
+      except Exception:
+        self._manager._events.pop(self.name, None)
+
+  cancel = stop
+
+  @property
+  def next_run(self):
+    return getattr(self.job, "next_run", None)
+
+  @property
+  def tags(self):
+    return getattr(self.job, "tags", set())
+
+  def __repr__(self) -> str:  # pragma: no cover (repr utility)
+    return f"<ScheduleEvent name={self.name!r} runs={self.run_count} limit={self.limit} paused={self.paused}>"
+
+
+class ScheduleManager:
   """
-  def __init__(self, *args, **kwargs):
+  Manage and schedule background tasks with a single scheduler thread.
+
+  Quick start:
+    sm = ScheduleManager()
+    sm.add(lambda x: print(x), interval=5, unit='seconds', args=("hi",))
+    sm.add(my_func, interval=1, unit='minutes', name='job1', limit=10)
+    sm.pause('job1'); sm.resume('job1'); sm.stop('job1')
+    sm.stop_all(); sm.shutdown()
+
+  Design changes from previous version:
+    - Single background thread per manager (no per-event threads).
+    - Uses a dedicated schedule.Scheduler (no global state collisions).
+    - run_count increments on actual job execution, not on tick.
+    - Support for pause/resume, per-job limit, tagging, and error handling.
+  """
+
+  def __init__(
+    self,
+    tick: float = 0.5,
+    autostart: bool = True,
+    on_error: Optional[Callable[[str, BaseException], None]] = None,
+  ) -> None:
+    self._scheduler = schedule.Scheduler()
+    self._events: Dict[str, ScheduleEvent] = {}
+    self._tick = tick
+    self._stop_event = threading.Event()
+    self._thread: Optional[threading.Thread] = None
+    self._lock = threading.RLock()
+    self._on_error = on_error
+    self._name_counter = 0
+    if autostart:
+      self.start()
+
+  # ---------- lifecycle ----------
+  def start(self) -> None:
+    with self._lock:
+      if self._thread and self._thread.is_alive():
+        return
+      self._stop_event.clear()
+      self._thread = threading.Thread(target=self._run_loop, name="ScheduleManager", daemon=True)
+      self._thread.start()
+
+  def shutdown(self, wait: bool = True) -> None:
+    self._stop_event.set()
+    if self._thread and wait:
+      self._thread.join(timeout=5)
+
+  def __enter__(self):
+    self.start()
+    return self
+
+  def __exit__(self, exc_type, exc, tb):
+    self.shutdown()
+
+  # ---------- public API ----------
+  @property
+  def events(self) -> Dict[str, ScheduleEvent]:
+    return self._events
+
+  def add(
+    self,
+    func             : Callable[..., Any],
+    interval         : int = 5,
+    unit             : str = "seconds",
+    *,
+    name             : Optional[str]            = None,
+    args             : Optional[Iterable[Any]]  = None,
+    kwargs           : Optional[Dict[str, Any]] = None,
+    limit            : Optional[int]            = None,
+    tags             : Optional[Iterable[str]]  = None,
+    at               : Optional[str]            = None,
+    start_immediately: bool                     = False,
+    **fkwargs        : Any,
+  ) -> ScheduleEvent:
+    """Schedule a callable.
+
+    Params:
+      - func: callable to run.
+      - interval: number for schedule.every(interval).
+      - unit: seconds|minutes|hours|days|weeks (as supported by schedule).
+      - name: identifier; autogenerated if omitted.
+      - args/kwargs: passed to func.
+      - limit: max successful runs; None means infinite.
+      - tags: optional schedule job tags.
+      - at: time string for daily jobs, e.g., '10:30'; effective for day-based units.
+      - start_immediately: run once right after scheduling.
     """
-      Schedule a method to be run in background
+    if not callable(func):
+      func = print  # Fallback to print if not callable
+    # Merge function-call args/kwargs (back-compat):
+    # - extra positional after unit => function positional.
+    # - unknown keywords => function keyword args.
+    call_args = tuple(args or ())
+    call_kwargs: Dict[str, Any] = {}
+    call_kwargs.update(fkwargs or {})
+    if kwargs:
+      call_kwargs.update(kwargs)
 
-      :param func|0: Function to be executed on schedule.
-      :param interval|1: Frequency to check and execute scheduled jobs.
-      :param unit|2: seconds, minutes, ...
-      :param limit: Allowed iterations (999999)
-      :param args: args as tuple/list/set
-    """
-    _n_args = len(args)
+    name = name or self._make_name(func)
 
-    self.func = kwargs.pop('func', args[0] if _n_args > 0 else print)
-    self.interval = kwargs.pop('interval', args[1] if _n_args > 1 else 5)
-    self.unit = kwargs.pop('unit', args[2] if _n_args > 2 else 'seconds')
-    self.limit = kwargs.pop('limit', 999999)
-    self.args = kwargs.pop('args', ())
+    # Create the job on this manager's scheduler
+    sch_every = getattr(self._scheduler.every(interval), unit)
+    if at and unit in {"day", "days"}:
+      sch_every = sch_every.at(at)
 
-    self.counter = 0
-    self.stop_event = threading.Event()
-    self._setup_job(*self.args, **kwargs)
-    self._setup_background_check()
+    # Wrapper to handle pause/limit/error and count runs
+    def _runner(*a, **k):
+      ev = self._events.get(name)
+      if not ev:
+        return
+      if ev.paused:
+        return
+      try:
+        func(*a, **k)
+        ev.run_count += 1
+      except BaseException as e:  # noqa: BLE001
+        if self._on_error:
+          try:
+            self._on_error(name, e)
+          except Exception:
+            pass
+        else:
+          # Fallback minimal logging without coupling to logging module
+          print(f"[ScheduleManager] Error in job {name}: {e}")
+      finally:
+        if ev.limit is not None and ev.run_count >= ev.limit:
+          ev.stop()
 
-  def _setup_job(self, *args, **kwargs):
-    """Set up the scheduled job with provided frequency."""
-    if self.interval and callable(self.func):
-      getattr(schedule.every(self.interval), self.unit).do(self.func, *args, **kwargs)
+    job = sch_every.do(_runner, *call_args, **call_kwargs)
+    if tags:
+      for t in tags:
+        job.tag(str(t))
 
-  def _setup_background_check(self, *args, **kwargs):
-    """Start the continuous job scheduling in a background thread."""
-    self.schedule_thread = threading.Thread(target=self._run_continuously)
-    self.schedule_thread.start()
+    ev = ScheduleEvent(self, job, func, name=name, limit=limit)
+    # Register under a unique name and (for back-compat) under func.__name__ alias
+    self._events[name] = ev
+    func_key = getattr(func, "__name__", None)
+    if func_key:
+      self._events[func_key] = ev  # latest wins (matches old behavior)
 
-  def _run_continuously(self):
-    """Run pending jobs in the background continuously."""
-    while not self.stop_event.is_set():
-      schedule.run_pending()
-      self.counter += 1
-      time.sleep(self.interval)
+    if start_immediately:
+      _runner(*call_args, **call_kwargs)
 
-      if self.counter > self.limit:
-        self.stop()
+    return ev
 
-  def stop(self):
-    """Stop the scheduled job and the background thread."""
-    self.stop_event.set()
+  def schedule_once(
+    self,
+    func         : Callable[..., Any],
+    delay_seconds: float = 0.0,
+    *,
+    name  : Optional[str]            = None,
+    args  : Optional[Iterable[Any]]  = None,
+    kwargs: Optional[Dict[str, Any]] = None,
+    tags  : Optional[Iterable[str]]  = None,
+  ) -> ScheduleEvent:
+    """Schedule a callable to run once after delay_seconds."""
+    return self.add(
+      func,
+      interval = max(0.001, delay_seconds or 0.001),
+      unit     = "seconds",
+      name     = name,
+      args     = args,
+      kwargs   = kwargs,
+      limit    = 1,
+      tags     = tags,
+    )
+
+  def stop(self, name: Optional[str] = None) -> None:
+    if name is None:
+      self.stop_all()
+      return
+    ev = self._events.get(name)
+    if ev:
+      ev.stop()
+
+  def pause(self, name: str) -> None:
+    ev = self._events.get(name)
+    if ev:
+      ev.pause()
+
+  def resume(self, name: str) -> None:
+    ev = self._events.get(name)
+    if ev:
+      ev.resume()
+
+  def stop_all(self) -> None:
+    """Stop each unique event once, then clear registry."""
+    for ev in set(self._events.values()):
+      try:
+        ev.stop()
+      except Exception:
+        pass
+    self._events.clear()
+
+  def _make_name(self, func: Callable[..., Any]) -> str:
+    base = getattr(func, "__name__", None) or getattr(func, "__qualname__", "func")
+    self._name_counter += 1
+    return f"{base}-{self._name_counter}-{uuid.uuid4().hex[:6]}"
+
+  def _run_loop(self) -> None:
+    while not self._stop_event.is_set():
+      try:
+        self._scheduler.run_pending()
+      except BaseException as e:  # noqa: BLE001
+        # Defensive: errors in running pending should not kill the loop
+        if self._on_error:
+          try:
+            self._on_error("__scheduler__", e)
+          except Exception:
+            pass
+        else:
+          print(f"[ScheduleManager] Scheduler loop error: {e}")
+      time.sleep(self._tick)
+
+  def _unregister_event(self, ev: ScheduleEvent) -> None:
+    for k, v in list(self._events.items()):
+      if v is ev:
+        self._events.pop(k, None)

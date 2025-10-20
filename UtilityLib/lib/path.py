@@ -1,63 +1,64 @@
 from pathlib import Path
-import os as OS, time as TIME
+import os as OS
 from itertools import islice
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+  from .file import EntityFile
 
 class EntityPath(Path):
   """
-  A versatile extension of Python's built-in `Path` class to simplify and enhance file and directory handling.
+    An extension of Python's built-in `Path` class to simplify and enhance file and directory handling.
 
-  Key Features:
-  --------------
-  1. **Extended Operators**: Implements custom operators (`//`, `%`, `-`, `+`) for intuitive path manipulation.
-      - `//` (Floor division): Splits the path into segments based on integer or string input.
-      - `%` (Modulo): Allows dynamic string formatting within paths.
-      - `-` (Subtraction): Removes segments from the path, either by an index or up to a matching string.
-      - `+` (Addition): Concatenates new path components easily.
+    Key Features:
+    --------------
+    1. **Extended Operators**: Implements custom operators (`//`, `%`, `-`, `+`) for intuitive path manipulation.
+        - `//` (Floor division): Splits the path into segments based on integer or string input.
+        - `%` (Modulo): Allows dynamic string formatting within paths.
+        - `-` (Subtraction): Removes segments from the path, either by an index or up to a matching string.
+        - `+` (Addition): Concatenates new path components easily.
 
-  2. **Search and Match**: Provides methods for pattern matching and file type identification.
-      - Methods like `search`, `has`, and `get_match` allow users to quickly find files or directories using flexible patterns.
+    2. **Search and Match**: Provides methods for pattern matching and file type identification.
+        - Methods like `search`, `has`, and `get_match` allow users to quickly find files or directories using flexible patterns.
 
-  3. **File and Directory Operations**: Simplifies common filesystem tasks like reading, writing, moving, copying, and deleting files or directories.
-      - Methods for safely deleting files (`delete` with `is_protected`).
-      - List all files, directories, or both using `list_files`, `list_dirs`, or `list_items`.
-      - Quick read/write utilities like `read_text`, `write_text`, `head`, and `tail` for file content manipulation.
+    3. **File and Directory Operations**: Simplifies common filesystem tasks like reading, writing, moving, copying, and deleting files or directories.
+        - Methods for safely deleting files (`delete` with `is_protected`).
+        - List all files, directories, or both using `list_files`, `list_dirs`, or `list_items`.
+        - Quick read/write utilities like `read_text`, `write_text`, `head`, and `tail` for file content manipulation.
 
-  4. **Metadata and Stats**: Efficiently retrieve file or directory metadata.
-      - Properties like `size`, `permission`, `created`, `updated`, and `hash` provide quick access to key attributes.
-      - Comprehensive stat retrieval via `stats` for access, modification, and creation times.
+    4. **Metadata and Stats**: Efficiently retrieve file or directory metadata.
+        - Properties like `size`, `permission`, `created`, `updated`, and `hash` provide quick access to key attributes.
+        - Comprehensive stat retrieval via `stats` for access, modification, and creation times.
 
-  5. **Compression Detection**: Automatically detect if a file is compressed, based on file extension (`is_gz`).
+    5. **Compression Detection**: Automatically detect if a file is compressed, based on file extension (`is_gz`).
 
-  6. **Path Formatting**: Methods like `rel_path`, `parent`, and `full_path` make it easy to convert paths to relative, parent, or absolute forms.
+    6. **Path Formatting**: Methods like `rel_path`, `parent`, and `full_path` make it easy to convert paths to relative, parent, or absolute forms.
 
-  Additional Utilities:
-  ---------------------
-  - `validate`: Creates the file or directory if it doesn't exist.
-  - `move` and `copy`: Move or copy files and directories to new locations with automatic parent directory creation if necessary.
-  - `get_hash`: Calculate file or directory hash using common algorithms like `sha256` and `md5` for integrity checks.
+    Additional Utilities:
+    ---------------------
+    - `validate`: Creates the file or directory if it doesn't exist.
+    - `move` and `copy`: Move or copy files and directories to new locations with automatic parent directory creation if necessary.
+    - `get_hash`: Calculate file or directory hash using common algorithms like `sha256` and `md5` for integrity checks.
 
-  This class is designed to make filesystem operations more intuitive and reduce repetitive boilerplate code, improving readability and efficiency in path manipulation tasks.
+    This class is designed to make filesystem operations more intuitive and reduce repetitive boilerplate code, improving readability and efficiency in path manipulation tasks.
   """
 
   _flavour = Path('.')._flavour
 
-  def __new__(self, *args, **kwargs):
-    _non_none_args = [_a for _a in args if not _a is None or not len(str(_a)) > 0]
-    if _non_none_args:
-      _non_none_args[0] = _non_none_args[0] and str(Path(_non_none_args[0]).expanduser())
-
-    if len(_non_none_args) < len(args) and len(args) == 1:
-      return super().__new__(self, "...")
-
-    return super().__new__(self, *_non_none_args, **kwargs)
+  def __new__(cls, *args, **kwargs) -> None:
+    # Filter out None and empty arguments properly
+    _valid_args = [
+      str(arg)
+      for arg in args
+      if arg is not None and str(arg).strip()
+    ] or ['.']
+    _valid_args[0] = str(Path(_valid_args[0]).expanduser().resolve())
+    return super().__new__(cls, *_valid_args, **kwargs)
 
   def len(self):
     return len(str(self))
 
   __len__ = len
-
-  def __str__(self):
-    return super().__str__()
 
   def help(self):
     """
@@ -103,17 +104,13 @@ class EntityPath(Path):
     if self.is_gz:
       return True
 
-    _compressed_path = self + '.gz'
-    if _compressed_path.exists():
-      return True
-
-    return False
+    return (self + '.gz').exists()
 
   @property
   def ext(self):
-    """False if current path is a directory."""
+    """None if current path is a directory."""
     if self.is_dir():
-      return False
+      return None
 
     return "".join(self.suffixes)
 
@@ -213,7 +210,6 @@ class EntityPath(Path):
     _res_lines = []
     _block_counter = -1
 
-    import os as OS
     while len(_res_lines) < lines:
       try:
         _fh.seek(_block_counter * buffer_size, OS.SEEK_END)
@@ -227,7 +223,7 @@ class EntityPath(Path):
     _res_lines = _fh._read_lines()
     return _res_lines[-lines:]
 
-  def _read_file(self, method=None):
+  def _read_file(self, method=None, **kwargs):
     """Read the text from the file.
       0|method: Custom method/function to read the file
     """
@@ -235,9 +231,9 @@ class EntityPath(Path):
       raise ValueError(f"{self} is not a file.")
 
     if callable(method):
-      return method(str(self))
+      return method(str(self), **kwargs)
 
-    return super().read_text()
+    return super().read_text(**kwargs)
 
   read_text = _read_file
   read = _read_file
@@ -246,12 +242,13 @@ class EntityPath(Path):
   def text(self):
     return self._read_file()
 
-  def write_text(self, data, mode="a"):
+  def write_text(self, data, mode="a", encoding="utf-8"):
     """Write the given text to the file."""
+    self.parent().validate()  # Ensure directory exists
     if self.exists() and not self.is_file():
       raise ValueError(f"{self} is not a file.")
 
-    with self.open(mode) as _f:
+    with self.open(mode, encoding=encoding) as _f:
       _f.write(data)
 
     return self.exists()
@@ -266,7 +263,9 @@ class EntityPath(Path):
     _files = []
     for _f in self.iterdir():
       if _f.is_file():
-        _fp = EntityPath(_f)
+        # Lazy import to avoid circular imports
+        from .file import EntityFile
+        _fp = EntityFile(_f)
         if relative == True:
           _fp = _fp.rel_path() # Relative to cwd
         _files.append(_fp)
@@ -293,19 +292,99 @@ class EntityPath(Path):
 
   folders = list_dirs
 
+
+  _items = None
   def list_items(self):
     """List all items (files and directories) in the directory."""
     if not self.is_dir():
       raise ValueError(f"{self} is not a directory.")
 
-    return [EntityPath(_i) for _i in self.iterdir()]
+    self._items = []
+    for _i in self.iterdir():
+      if _i.is_file():
+        # Lazy import to avoid circular imports
+        from .file import EntityFile
+        self._items.append(EntityFile(_i))
+      else:
+        self._items.append(EntityPath(_i))
+    return self._items
 
   @property
   def items(self):
-    return self.list_items()
+    self.list_items()
+    return self._items
+
+  def __getitem__(self, idx):
+    """Get item by index."""
+    return self.items[idx]
+
+  def __getitem__(self, idx):
+    """Get item by index."""
+    return self.items[idx]
 
   entities = items
   _all = items
+
+  _discovered_dirs = []
+
+  @property
+  def list_sub_dirs(self):
+    if not self._discovered_dirs:
+      list(self._discover_dirs())
+    return self._discovered_dirs
+
+  list_subdirs = list_sub_dirs
+  subdirs = list_sub_dirs
+
+  @property
+  def walk_dirs(self):
+    return self._discover_dirs()
+
+  def _discover_dirs(self, directory=None):
+    """
+    Recursively discovers directories and populates self._discovered_dirs.
+    """
+    if directory is None:
+      directory = str(self)
+    else:
+      directory = str(directory)
+
+    try:
+      for dirpath, dirnames, filenames in OS.walk(directory):
+        ep = EntityPath(dirpath)
+        self._discovered_dirs.append(ep)
+        yield ep
+    except Exception as e:
+      print(f"Exception: {e}")
+
+  _discovered_files = None
+
+  @property
+  def list_sub_files(self):
+    if not self._discovered_files:
+      self._discovered_files = []
+      list(self._discover_files())
+    return self._discovered_files
+
+  list_subfiles = list_sub_files
+  subfiles = list_sub_files
+
+  @property
+  def walk_files(self):
+    return self._discover_files()
+
+  def _discover_files(self, *args, **kwargs):
+    self._discovered_files = []
+    try:
+      for dirpath, dirnames, filenames in OS.walk(str(self)):
+        for filename in filenames:
+          # Lazy import to avoid circular imports
+          from .file import EntityFile
+          file_path = EntityFile(dirpath) / filename
+          self._discovered_files.append(file_path)
+          yield file_path
+    except Exception as e:
+      print(f"Exception: {e}")
 
   is_protected = True
   def delete(self, is_protected=None):
@@ -432,7 +511,7 @@ class EntityPath(Path):
   @property
   def full_path(self):
     """Return the absolute path."""
-    return str(self.resolve())
+    return str(self.expanduser().resolve())
 
   def rel_path(self, _path=None):
     """Return the relative path from the current working directory."""
@@ -484,15 +563,19 @@ class EntityPath(Path):
 
   @property
   def created(self):
-    return TIME.ctime(self.stats.st_ctime)
+    return self.stats.st_ctime
 
   @property
   def accessed(self):
-    return TIME.ctime(self.stats.st_atime)
+    """Provides accessed time (timestamp) during run time"""
+    self.get_stats()
+    return self._stats.st_atime
 
   @property
   def updated(self):
-    return TIME.ctime(self.stats.st_mtime)
+    """Provides update time (timestamp) during run time"""
+    self.get_stats()
+    return self._stats.st_mtime
 
   modified = updated
 
@@ -516,6 +599,9 @@ class EntityPath(Path):
     except Exception as _e:
       print(f"Unexpected error occurred: {_e}")
       return None
+
+  def __call__(self, *args, **kwargs):
+    """ToDo: Call operator to perform open file or directory."""
 
   # def __iter__(self):
   #   """Iterates through entities in the directory"""
@@ -581,41 +667,106 @@ class EntityPath(Path):
     else:
       raise TypeError("Unsupported operand type for -: must be 'int' or 'str'")
 
+  def __enter__(self):
+    """
+    Context manager entry:
+    Temporarily changes the current working directory to the location of the path (parent for files, the directory itself for directories), and yields the opened file object for files or the path for directories.
+    Usage:
+      with EntityPath('file.txt') as f:
+          # cwd changed to parent of file.txt
+          for line in f:
+              ...
+      with EntityPath('dir/') as p:
+          # cwd changed to dir/
+          print('Current working directory:', p)
+    """
+    return self._CwdContext(self)
+
+  def __exit__(self, exc_type, exc_val, exc_tb):
+    pass
+
+  class _CwdContext:
+    """Context manager for temporarily changing the current working directory."""
+    def __init__(self, path):
+      self.path = path
+      self._original_cwd = None
+
+    def __enter__(self):
+      self._original_cwd = OS.getcwd()
+      if self.path.is_file():
+        OS.chdir(str(self.path.parent()))
+        self._context_file = self.path.open()
+        return self._context_file
+      elif self.path.is_dir():
+        OS.chdir(str(self.path))
+        return self.path
+      else:
+        return iter([])
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+      if hasattr(self, '_context_file'):
+        self._context_file.close()
+        del self._context_file
+      if self._original_cwd:
+        OS.chdir(self._original_cwd)
+
+
+
   space =  '    '
   branch = '│   '
   tee =    '├── '
   last =   '└── '
 
-  def tree(self, level: int=-1, limit_to_directories: bool=False, length_limit: int=1000):
-    """Prints/Given a directory Path object print a visual tree structure
-
-    Ref: https://stackoverflow.com/a/59109706/6213452
-    """
-    dir_path = Path(self) # accept string coerceable to Path
+  def tree_gen(self, level: int = -1, limit_to_directories: bool = False):
+    """Yield the tree structure lazily, line by line."""
+    dir_path = Path(self)
     files = 0
     directories = 0
-    def inner(dir_path: Path, prefix: str='', level=-1):
+
+    def inner(dir_path: Path, prefix: str = "", level=-1):
       nonlocal files, directories
       if not level:
-        return # 0, stop iterating
-      if limit_to_directories:
-        contents = [d for d in dir_path.iterdir() if d.is_dir()]
-      else:
-        contents = list(dir_path.iterdir())
-      pointers = [self.tee] * (len(contents) - 1) + [self.last]
+        return
+      contents = (
+        [d for d in dir_path.iterdir()]
+        if not limit_to_directories
+        else [d for d in dir_path.iterdir() if d.is_dir()]
+      )
+      pointers = [EntityPath.tee] * (len(contents) - 1) + [EntityPath.last]
       for pointer, path in zip(pointers, contents):
         if path.is_dir():
-          yield prefix + pointer + path.name
           directories += 1
-          extension = self.branch if pointer == self.tee else self.space
-          yield from inner(path, prefix=prefix+extension, level=level-1)
-        elif not limit_to_directories:
           yield prefix + pointer + path.name
+          extension = (
+            EntityPath.branch
+            if pointer == EntityPath.tee
+            else EntityPath.space
+          )
+          yield from inner(path, prefix=prefix + extension, level=level - 1)
+        elif not limit_to_directories:
           files += 1
-    print(dir_path.name)
-    iterator = inner(dir_path, level=level)
-    for line in islice(iterator, length_limit):
-        print(line)
+          yield prefix + pointer + path.name
+
+    yield dir_path.name
+    yield from inner(dir_path, level=level)
+    yield f"\n{directories} directories" + (f", {files} files" if files else "")
+
+  def tree(self, level: int = -1, limit_to_directories: bool = False,
+    length_limit: int = 1000, to_file: str = None ) -> str:
+    """
+    Return a visual tree structure of a directory.
+    Optionally save the result to a file.
+    """
+    iterator = self.tree_gen(level=level, limit_to_directories=limit_to_directories)
+    lines = list(islice(iterator, length_limit))
+
+    # Check if more lines exist
     if next(iterator, None):
-        print(f'... length_limit, {length_limit}, reached, counted:')
-    print(f'\n{directories} directories' + (f', {files} files' if files else ''))
+      lines.append(f"... length_limit, {length_limit}, reached")
+
+    result = "\n".join(lines)
+
+    if to_file:
+      Path(to_file).write_text(result, encoding="utf-8")
+
+    return result

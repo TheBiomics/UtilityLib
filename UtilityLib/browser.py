@@ -15,14 +15,17 @@ class BrowserManager(ProjectManager):
     self.wd_by = By
     self.wd_ec = expected_conditions
     self.wd_keys = Keys
-    if not self._are_deps_installed():
-      self.cmd_run('pip install selenium-wire blinker==1.7.0 webdriver-manager mechanicalsoup', shell=True)
+    self._ensure_requirements()
     self.set_selectors()
     super().__init__(**kwargs)
 
-  def _are_deps_installed(self):
-    required_imports = ['seleniumwire', 'blinker', 'webdriver_manager', 'mechanicalsoup']
-    return all(self._is_package_installed(pkg) for pkg in required_imports)
+  def _ensure_requirements(self):
+    _req_imports = ['seleniumwire', 'blinker==1.7.0', 'webdriver_manager', 'mechanicalsoup']
+    _flag_reqs = {pkg: self._is_package_installed(pkg.split('==')[0]) for pkg in _req_imports}
+    _not_installed = [pkg for pkg, _is_inst in _flag_reqs.items() if not _is_inst]
+    if len(_not_installed) > 1:
+      self.cmd_run('pip uninstall blinker', shell=True)
+      self.cmd_run("pip install " + " ".join(_not_installed), shell=True)
 
   def set_selectors(self, *args, **kwargs):
     self.by_id = By.ID
@@ -70,7 +73,7 @@ class BrowserManager(ProjectManager):
       self.time_pause(self.delay)
     # elem = WebDriverWait(driver, delay).until(EC.presence_of_element_located((By.NAME, 'chart')))
 
-  def get_url(self, *args, **kwargs):
+  def browse_url(self, *args, **kwargs):
     _url = kwargs.get("url", args[0] if len(args) > 0 else None)
     _file_path = kwargs.get("file_path", args[1] if len(args) > 1 else None)
     _screenshot_path = kwargs.get("screenshot_path", args[2] if len(args) > 2 else None)
@@ -116,18 +119,29 @@ class BrowserManager(ProjectManager):
   def init_browser(self, browser_type='chrome', *args, **kwargs):
     if hasattr(self, 'wd_instance') and self.wd_instance:
       return  # Browser instance already initialized
+
+    sw_options = {
+      'disable_encoding'        : True,
+      'verify_ssl'              : False,
+      'request_storage_base_dir': './sel-store-temp', # store large bodies
+      # 'request_storage'         : 'memory',           # or memory/disk
+      'request_storage_max_size': 50 * 1024 * 1024  # 50 MB
+    }
+
     try:
       if browser_type.lower() == 'chrome':
         from webdriver_manager.chrome import ChromeDriverManager
         from selenium.webdriver.chrome.service import Service as ChromeService
         self.wd_instance = WebDriver.Chrome(
           options=self.options,
-          service=ChromeService(executable_path=ChromeDriverManager().install())
+          service=ChromeService(executable_path=ChromeDriverManager().install()),
+          seleniumwire_options=sw_options
         )
       elif browser_type.lower() == 'firefox':
         from webdriver_manager.firefox import GeckoDriverManager
         self.wd_instance = WebDriver.Firefox(
-          service=FirefoxService(executable_path=GeckoDriverManager().install())
+          service=FirefoxService(executable_path=GeckoDriverManager().install()),
+          seleniumwire_options=sw_options
         )
       else:
         raise ValueError(f"Unsupported browser type: {browser_type}")
@@ -199,10 +213,10 @@ class FireFoxManager(BrowserManager):
     self._set_default_options()
 
   def _set_default_options(self):
-      self.options.add_argument("--width=1920")
-      self.options.add_argument("--height=1080")
-      if self.headless:
-          self.options.add_argument("--headless")
+    self.options.add_argument("--width=1920")
+    self.options.add_argument("--height=1080")
+    if self.headless:
+      self.options.add_argument("--headless")
 
   def init_browser(self, *args, **kwargs):
     if hasattr(self, 'wd_instance') and self.wd_instance:
@@ -224,12 +238,12 @@ class BrowserlessManager(ProjectManager):
   def __init__(self, *args, **kwargs):
     super().__init__(**kwargs)
     self.require("mechanicalsoup", 'MechSoup')
+    self.browser = self.MechSoup.StatefulBrowser(raise_on_404=False)
 
-  def get_url(self, *args, **kwargs):
+  def browse_url(self, *args, **kwargs):
     _url = kwargs.get("url", args[0] if len(args) > 0 else None)
     _file_path = kwargs.get("file_path", args[1] if len(args) > 1 else None)
 
-    self.browser = self.MechSoup.StatefulBrowser(raise_on_404=False)
     self.browser.open(_url)
 
     _html = self.browser.page

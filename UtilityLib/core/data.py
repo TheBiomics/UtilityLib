@@ -1,7 +1,14 @@
 from .file import FileSystemUtility
 from ..lib.path import EntityPath
+from typing import Any, List, Optional
 
-from tqdm.auto import tqdm as _TQDMPB
+try:
+    from tqdm.auto import tqdm as _TQDMPB
+    TQDM_AVAILABLE = True
+except ImportError:
+    TQDM_AVAILABLE = False
+    _TQDMPB = None
+
 
 class DataUtility(FileSystemUtility):
   """DataUtility class
@@ -14,25 +21,25 @@ class DataUtility(FileSystemUtility):
     super().__init__(**self.__defaults)
 
   # Type of variable (validate)
-  def check_instance(self, *args, **kwargs):
+  def check_instance(self, *args, **kwargs) -> bool:
     _var = kwargs.get("var", args[0] if len(args) > 0 else None)
     _instances = kwargs.get("instances", args[1] if len(args) > 1 else self.type_numbers)
     return isinstance(_var, _instances)
 
   type_numbers = (int, float, complex)
-  def is_numeric(self, *args, **kwargs):
+  def is_numeric(self, *args, **kwargs) -> bool:
     """Checks if variable is numeric, int, float, or complex"""
     kwargs.update({"instances": self.type_numbers})
     return self.check_instance(*args, **kwargs)
 
   type_none = (type(None),)
-  def is_none(self, *args, **kwargs):
+  def is_none(self, *args, **kwargs) -> bool:
     """Checks if variable is None"""
     kwargs.update({"instances": self.type_none})
     return self.check_instance(*args, **kwargs)
 
-  type_integers = (int)
-  def is_int(self, *args, **kwargs):
+  type_integers = (int,)
+  def is_int(self, *args, **kwargs) -> bool:
     """Checks if variable is integer not float, string or other types"""
     kwargs.update({"instances": self.type_integers})
     return self.check_instance(*args, **kwargs)
@@ -40,61 +47,84 @@ class DataUtility(FileSystemUtility):
   is_digit = is_int
 
   type_arrays = (list, set, tuple)
-  def is_array(self, *args, **kwargs):
+  def is_array(self, *args, **kwargs) -> bool:
     """Check if list, tuple, set, or numpy array"""
     kwargs.update({"instances": self.type_arrays})
     return self.check_instance(*args, **kwargs)
 
+  # ToDo: Implement specific checks for each array type
   is_list = is_array
   is_set = is_array
   is_tuple = is_array
 
   type_non_arrays = (int, float, complex, str, bool)
-  def is_singular(self, *args, **kwargs):
+  def is_singular(self, *args, **kwargs) -> bool:
     """Checks if not iterable or string, int, or float"""
     kwargs.update({"instances": self.type_non_arrays})
     return self.check_instance(*args, **kwargs)
 
   is_non_iterable = is_singular
 
-  type_maps = (dict)
-  def is_map(self, *args, **kwargs):
+  type_maps = (dict,)
+  def is_map(self, *args, **kwargs) -> bool:
     """Checks if dict, named tuple, or dataframe"""
     kwargs.update({"instances": self.type_maps})
     return self.check_instance(*args, **kwargs)
 
   is_dict = is_map
 
-  def is_named_tuple(self, *args, **kwargs):
+  def is_named_tuple(self, *args, **kwargs) -> bool:
     """Checks for named tuple (collections namedtuple)"""
     _var = kwargs.get("var", args[0] if len(args) > 0 else None)
-    return isinstance(_var, (tuple)) and hasattr(_var, '_fields')
+    return isinstance(_var, (tuple,)) and hasattr(_var, '_fields')
 
-  type_bools =  (bool)
-  def is_bool(self, *args, **kwargs):
+  type_bools = (bool,)
+  def is_bool(self, *args, **kwargs) -> bool:
     """Checks if variable is a boolean"""
     kwargs.update({"instances": self.type_bools})
     return self.check_instance(*args, **kwargs)
 
-  # Iteration
+  def is_df(self, what=None):
+    """Check if given variable is DataFrame"""
+    return type(what) is type(self.DF())
+
+  def unique(self, *args, **kwargs) -> Optional[List[Any]]:
+    """Returns unique elements from a list or array
+      - Preserves the order of elements except for set type
+      - Returns the same type as input
+    """
+    _items = kwargs.get("item", args[0] if len(args) > 0 else None)
+    if self.is_array(_items):
+      # Get type of the item and return the same type
+      _type = type(_items)
+      return _type(dict.fromkeys(_items))
+    return _items
+
+  # Enhanced iteration with progress bars
   _loop_obj = None
   def _loop_with_progress_bar(self, *args, **kwargs):
-    _items = kwargs.pop('items', args[0] if len(args) > 0 else [])
-    _desc = kwargs.pop('desc', args[1] if len(args) > 1 else "Item")
+    _items   = kwargs.pop('items', args[0] if len(args) > 0 else [])
+    _desc    = kwargs.pop('desc', args[1] if len(args) > 1 else "Item")
     _desc_fn = kwargs.pop('desc_fn', args[2] if len(args) > 2 else None)
 
-    with _TQDMPB(_items, **kwargs) as _pb:
-      self._loop_obj = _pb
+    if TQDM_AVAILABLE and _TQDMPB:
+      with _TQDMPB(_items, **kwargs) as _pb:
+        self._loop_obj = _pb
+        for _i in _items:
+          _pb.desc = _desc_fn(_i) if callable(_desc_fn) else f"{_desc} {_i}"
+          _pb.update(1)
+          yield _i
+    else:
+      # Fallback to simple iteration without progress bar
+      self._loop_obj = None
       for _i in _items:
-        _pb.desc = _desc_fn(_i) if callable(_desc_fn) else f"{_desc} {_i}"
-        _pb.update(1)
         yield _i
 
-  _loop_pb = _loop_with_progress_bar
-  loop_pb = _loop_with_progress_bar
-  loop  = _loop_with_progress_bar
-  ProgressBar  = _loop_with_progress_bar
-  PB  = _loop_with_progress_bar
+  _loop_pb    = _loop_with_progress_bar
+  loop_pb     = _loop_with_progress_bar
+  loop        = _loop_with_progress_bar
+  ProgressBar = _loop_with_progress_bar
+  PB          = _loop_with_progress_bar
 
   # DataFrame Functions
   ## Pandas
@@ -544,7 +574,7 @@ class DataUtility(FileSystemUtility):
     """
     _obj = kwargs.get("obj", args[0] if len(args) > 0 else None)
 
-    if _obj is None:
+    if not _obj:
       return _obj
 
     from itertools import islice
@@ -606,8 +636,38 @@ class DataUtility(FileSystemUtility):
       _collector = _nested
     return _collector
 
+  def flatten_dict(self, d, parent_key=""):
+    """
+      Flattens nested dict/lists into PHP-style bracket notation.
+      Example:
+      {
+        "key": [
+            {"subkey": "value", "subkey2": "value2"}
+        ]
+      }
+      => {"key[0][subkey]": "value", "key[0][subkey2]": "value2"}
+    """
+    items = {}
+
+    if isinstance(d, dict):
+      for k, v in d.items():
+        new_key = f"{parent_key}[{k}]" if parent_key else k
+        if isinstance(v, (dict, list)):
+          items.update(self.flatten_dict(v, new_key))
+        else:
+          items[new_key] = v
+    elif isinstance(d, list):
+      for i, v in enumerate(d):
+        new_key = f"{parent_key}[{i}]"
+        if isinstance(v, (dict, list)):
+          items.update(self.flatten_dict(v, new_key))
+        else:
+          items[new_key] = v
+    return items
+
+
   def product(self, *args, **kwargs):
-    """@generator Provides combinations of the given items
+    """@generator Provides product of the given items
       NOTE: Single string will be converted to one item list
       "AUGC" will behave like ["A", "U", ...]
       ["AUGC"] will be treated as it is
@@ -621,6 +681,7 @@ class DataUtility(FileSystemUtility):
       product("AUGC", repeat=3)
       product(["AU", "GC"], repeat=2)
       product(["A", "U", "G", "C"], repeat=8)
+      product(["A", "U", "G", "C"], ['A', 'U', 'G', 'C'], repeat=8)
 
     """
     _items = kwargs.get("items", args)

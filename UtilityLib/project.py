@@ -1,20 +1,22 @@
 from .utility import UtilityManager
 from .lib.obj import ObjDict
 from .lib.path import EntityPath
+from .lib.file import EntityFile
+from typing import Any, Dict, Optional, Union
 
 class ProjectManager(UtilityManager):
-  name = "project"
-  config_version = 1
-  config_subversion = 20241000
-  path_config = None
+  name             : str                  = "project"
+  config_version   : str                  = "1"
+  config_subversion: str                  = "2025W38"
+  path_config      : Optional[EntityPath] = None
 
-  def __init__(self, *args, **kwargs):
+  def __init__(self, *args, **kwargs) -> None:
     self.__defaults = {"config_key": "config"}
     self.__defaults.update(kwargs)
     super().__init__(**self.__defaults)
     self.load_config()
 
-  def _toml_map_from_str(self, data):
+  def _toml_map_from_str(self, data: Any) -> Any:
     if isinstance(data, dict):
       data = {k: self._toml_map_from_str(v) for k, v in data.items()}
     elif isinstance(data, list):
@@ -24,25 +26,19 @@ class ProjectManager(UtilityManager):
 
     return data
 
-  toml_path = "~/UtilityLib-Project.toml"
-  toml_data = ObjDict()
+  toml_path: str     = "~/UtilityLib-Project.toml"
+  toml_data: ObjDict = ObjDict()
 
-  def read_toml(self, *args, **kwargs):
+  def read_toml(self, *args, **kwargs) -> ObjDict:
     """Reads .toml file content and parses into dict"""
     self.toml_path = kwargs.get('toml_path', args[0] if len(args) > 0 else self.toml_path)
-    self.toml_path = EntityPath(self.toml_path)
-
-    if self.toml_path.exists() and self.require('toml', 'TOML'):
-      _raw = self.TOML.load(self.toml_path)
-      self.toml_data = ObjDict(self._toml_map_from_str(_raw))
-
-    return self.toml_data
+    return EntityFile(self.toml_path).read_toml()
 
   load_toml = read_toml
-  get_toml = read_toml
+  get_toml  = read_toml
   from_toml = read_toml
 
-  def convert_to_toml_obj(self, data={}) -> str:
+  def convert_to_toml_obj(self, data: Dict[str, Any] = {}) -> str:
     _toml_obj = ""
     if data and self.require('toml', 'TOML'):
       self.log_debug('PROJECT_01: Dumping TOML data')
@@ -51,36 +47,29 @@ class ProjectManager(UtilityManager):
 
     return _toml_obj
 
-  def write_toml(self, *args, **kwargs):
+  def write_toml(self, *args, **kwargs) -> bool:
     """Writes given object to the provided path"""
     self.toml_path = kwargs.get('toml_path', args[0] if len(args) > 0 else self.toml_path)
     self.toml_data = kwargs.get('toml_data', args[1] if len(args) > 1 else self.toml_data)
-    self.toml_path = EntityPath(self.toml_path)
-
-    _toml_str = self.convert_to_toml_obj(self.toml_data)
-
-    if self.toml_path.exists():
-      self.log_debug('PROJECT_02: Overwriting TOML config.')
-
-    self.toml_path.write(_toml_str)
-    return self.toml_path.exists()
+    return EntityFile(self.toml_path).write_toml(self.toml_data)
 
   to_toml = write_toml
 
-  def set_config_path(self, *args, **kwargs):
+  def set_config_path(self, *args, **kwargs) -> None:
     self.update_attributes(self, kwargs)
-    self.path_config = (EntityPath(self.path_base) / self.name).with_suffix(f".v{self.config_version}.{self.config_subversion}.config.gz") if self.path_base else EntityPath(f"{self.name}.v{self.config_version}.{self.config_subversion}.config.gz")
+    _config_file = f"{self.name}.v{self.config_version}.{self.config_subversion}.config.gz"
+    self.path_config = (EntityPath(self.path_base) / _config_file) if self.path_base else EntityPath(_config_file)
 
-  def rebuild_config(self, *args, **kwargs):
+  def rebuild_config(self, *args, **kwargs) -> None:
     self.update_attributes(self, kwargs)
     """Read config again"""
     setattr(self, self.config_key, self.ConfigManager(getattr(self, self.config_key, ObjDict())))
 
-  def reset_config(self, *args, **kwargs):
+  def reset_config(self, *args, **kwargs) -> Any:
     self.update_attributes(self, kwargs)
     return self.load_config(**kwargs)
 
-  def load_config(self, *args, **kwargs):
+  def load_config(self, *args, **kwargs) -> None:
     self.update_attributes(self, kwargs)
     if not getattr(self, 'path_config'):
       self.set_config_path()
@@ -93,10 +82,10 @@ class ProjectManager(UtilityManager):
 
     self.rebuild_config()
 
-  def save_config(self, *args, **kwargs):
+  def save_config(self, *args, **kwargs) -> Any:
     return self.update_config(*args, **kwargs)
 
-  def update_config(self, *args, **kwargs):
+  def update_config(self, *args, **kwargs) -> None:
     self.update_attributes(self, kwargs)
     self.set_config_path()
     self.rebuild_config()
@@ -105,14 +94,14 @@ class ProjectManager(UtilityManager):
     _config.last_updated = self.timestamp
     self.pickle(self.path_config, _config)
 
-  def get_path(self, *args, **kwargs):
+  def get_path(self, *args, **kwargs) -> EntityPath:
     _relative_path = args[0] if len(args) > 0 else kwargs.get("path", "")
     _fp = str(_relative_path).lstrip('/')
     if not self.path_base is None:
-      _fp = EntityPath(self.path_base) / _fp
+      _fp = (EntityPath(self.path_base) / _fp).expanduser().resolve()
     return _fp
 
-  def get_join(self, *args, **kwargs):
+  def get_join(self, *args, **kwargs) -> str:
     _key = args[0] if len(args) > 0 else kwargs.get("key", None)
     _val = args[1] if len(args) > 1 else kwargs.get("val", None)
     _glue = args[2] if len(args) > 2 else kwargs.get("glue", "/")
@@ -124,8 +113,8 @@ class ProjectManager(UtilityManager):
 
     return f"{_glue}".join([_def_prepend, _val])
 
-  Schedule_Event_Refs = []
-  def schedule_event(self, *args, **kwargs):
+  Schedule_Event_Refs: list = []
+  def schedule_event(self, *args, **kwargs) -> list:
     """Schedule event in background"""
     from .lib.schedule import ScheduleEvent
     _func = kwargs.get('func', args[0] if len(args) > 0 else None)
@@ -138,13 +127,13 @@ class ProjectManager(UtilityManager):
 
     return self.Schedule_Event_Refs
 
-  def stop_all_schedule_events(self):
+  def stop_all_schedule_events(self) -> bool:
     for _se in self.Schedule_Event_Refs:
       _se.stop()
 
     return True
 
-  def _apply_method_to_file(self, file_ref, operation, *args, **kwargs):
+  def _apply_method_to_file(self, file_ref: Union[str, EntityPath], operation: str, *args, **kwargs) -> Any:
     """All operations are not op_file compatible due to variable number of arguments
 
       @params
@@ -163,8 +152,8 @@ class ProjectManager(UtilityManager):
 
     return _op(_file_path, *args, **kwargs)
 
-  file_op = _apply_method_to_file
+  file_op        = _apply_method_to_file
   file_operation = _apply_method_to_file
-  func_on_file = _apply_method_to_file
-  file_func = _apply_method_to_file
-  op_file = _apply_method_to_file
+  func_on_file   = _apply_method_to_file
+  file_func      = _apply_method_to_file
+  op_file        = _apply_method_to_file

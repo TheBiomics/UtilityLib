@@ -59,6 +59,22 @@ class DatabaseUtility(CommandUtility):
       self.engine = create_engine(_engine_uri, **self.db_params)
     return self.engine
 
+  def set_sqlite_engine(self, db_path):
+    try:
+      from sqlalchemy import create_engine
+
+      if self.OS.name == "nt":
+        self.engine = create_engine(f"sqlite:///{self.db_path}")
+      else:
+        self.engine = create_engine(f"sqlite:////{self.db_path}")
+
+      self.is_connected = True
+      return self.db_path
+    except Exception as _e:
+      print(f"Failed to connect to SQLite DB: {_e}")
+
+    return False
+
   def connect_sqlite(self, *args, **kwargs):
     """Connects with SQLite Database
 
@@ -75,20 +91,8 @@ class DatabaseUtility(CommandUtility):
     if self.is_connected:
       return self.db_path
 
-    try:
-      from sqlalchemy import create_engine
+    return self.set_sqlite_engine(self.db_path)
 
-      if self.OS.name == "nt":
-        self.engine = create_engine(f"sqlite:///{self.db_path}")
-      else:
-        self.engine = create_engine(f"sqlite:////{self.db_path}")
-
-      self.is_connected = True
-      return self.db_path
-    except Exception as _e:
-      print(f"Failed to connect to SQLite DB: {_e}")
-
-    return False
 
   db_connect = connect_sqlite
 

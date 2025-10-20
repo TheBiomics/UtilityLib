@@ -58,7 +58,7 @@ class LoggingUtility(TimeUtility):
       return
 
     if isinstance(self.log_level, (str)):
-      self.log_level = getattr(_Logging, self.log_level.upper(), _Logging.INFO)
+      self.log_level = getattr(_Logging, self.log_level.upper(), _Logging.DEBUG)
 
     _ch = _Logging.StreamHandler()
     _ch.setLevel(self.log_level)

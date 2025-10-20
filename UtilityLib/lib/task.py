@@ -23,37 +23,42 @@ class TaskManager():
   _status_header = ['Task', 'Subtask', 'Step', 'Status', 'Start', 'End']
   last_status_df = None
 
+  _tasks = ObjDict()
   def __init__(self, *args, **kwargs):
     super().__init__(*args, **kwargs)
-    self._tasks = ObjDict()
+    self._def_task = kwargs.get('task', args[0] if len(args) > 0 else self._def_task)
+    self._def_subtask = kwargs.get('subtask', args[1] if len(args) > 1 else self._def_subtask)
+    self._def_step = kwargs.get('step', args[2] if len(args) > 2 else self._def_step)
+
+  def _get_task_params(self, *args, **kwargs):
+    _step    = kwargs.get('step', args[0] if len(args) > 0 else self._def_step)
+    _subtask = kwargs.get('subtask', args[1] if len(args) > 1 else self._def_subtask)
+    _task    = kwargs.get('task', args[2] if len(args) > 2 else self._def_task)
+    _status  = kwargs.get('status', args[3] if len(args) > 3 else None)
+
+    return _step, _subtask, _task, _status
 
   def start_step(self, *args, **kwargs):
     """Start a specific stage for a task."""
-    _step = kwargs.get('step', args[0] if len(args) > 0 else self._def_step)
-    _subtask = kwargs.get('subtask', args[1] if len(args) > 1 else self._def_subtask)
-    _task = kwargs.get('task', args[2] if len(args) > 2 else self._def_task)
+    _step, _subtask, _task, _ = self._get_task_params(*args, **kwargs)
 
     self._tasks[_task][_subtask][_step]['status'] = 0
     self._tasks[_task][_subtask][_step]['start'] = EntityTime().timestamp
-    self._tasks[_task][_subtask][_step]['end'] = None
+    self._tasks[_task][_subtask][_step]['last'] = EntityTime().timestamp
 
   def step_status(self, *args, **kwargs):
-    """Start a specific stage for a task."""
-    _step = kwargs.get('step', args[0] if len(args) > 0 else self._def_step)
-    _subtask = kwargs.get('subtask', args[1] if len(args) > 1 else self._def_subtask)
-    _task = kwargs.get('task', args[2] if len(args) > 2 else self._def_task)
-    _status = kwargs.get('task', args[3] if len(args) > 3 else 1)
-
-    self._tasks[_task][_subtask][_step]['status'] = _status
+    """Update a specific stage for a task."""
+    _step, _subtask, _task, _status = self._get_task_params(*args, **kwargs)
+    self._tasks[_task][_subtask][_step]['last'] = EntityTime().timestamp
+    if not _status is None:
+      self._tasks[_task][_subtask][_step]['status'] = _status
 
   def end_step(self, *args, **kwargs):
     """Start a specific stage for a task."""
-    _step = kwargs.get('step', args[0] if len(args) > 0 else self._def_step)
-    _subtask = kwargs.get('subtask', args[1] if len(args) > 1 else self._def_subtask)
-    _task = kwargs.get('task', args[2] if len(args) > 2 else self._def_task)
+    _step, _subtask, _task, _ = self._get_task_params(*args, **kwargs)
 
     self._tasks[_task][_subtask][_step]["status"] = 1
-    self._tasks[_task][_subtask][_step]['end'] = EntityTime().timestamp
+    self._tasks[_task][_subtask][_step]['last'] = EntityTime().timestamp
 
   def get_status(self, *args, **kwargs):
     """Summarize progress across all tasks."""

@@ -28,12 +28,18 @@ class BaseUtility:
   @property
   def path_base(self):
     if self._path_base is None:
-      self._path_base = EntityPath(self.OS.getcwd())
+      self.path_base = self.OS.getcwd()
     return self._path_base
 
   @path_base.setter
   def path_base(self, path):
     self._path_base = EntityPath(path) if path else EntityPath(self.OS.getcwd())
+
+    # pathlib.Path doesn't automatically expands '~' to home directory
+    # doesn't resolve the relative paths
+    # Requires it to be done manually to avoid exists/operation errors
+    # e.g., ~/Documents/../Downloads => /Users/username/Downloads
+    self._path_base = self._path_base.expanduser().resolve()
 
     if self._path_base and self._path_base.exists():
       self.OS.chdir(self._path_base)
@@ -54,7 +60,7 @@ class BaseUtility:
     _path_bases = args[0] if len(args) > 0 else kwargs.get("path_bases", self.path_base)
     # Consider first path for Linux and second path for Windows
     if isinstance(_path_bases, (str)):
-      self.path_base = EntityPath(_path_bases)
+      self.path_base = _path_bases
     elif isinstance(_path_bases, (list, tuple)):
       _path_bases = _path_bases * 2
       self.path_base = _path_bases[1] if self.is_windows else _path_bases[0]
@@ -302,7 +308,11 @@ class BaseUtility:
 
   def _is_package_installed(self, pkg_import_name):
     import importlib.util as ILUtil
-    return ILUtil.find_spec(pkg_import_name) is not None
+    try:
+      return ILUtil.find_spec(pkg_import_name) is not None
+    except:
+      self.log_error(f"Package {pkg_import_name} caused an import error.")
+      return False
 
   def list_py_classes(self, *args, **kwargs):
     """Lists classes as {class:filename...} pair

@@ -52,8 +52,14 @@ class ObjDict(dict):
 
   @property
   def _keys(self):
-    _ck = [*self.keys()]
-    return [_k for _k in _ck if not _k.startswith('_')]
+    """Return keys excluding those starting with an underscore.
+    dict.keys avoids recursion as the class creates keys while iterating in case key is missing.
+    """
+    return [_k for _k in dict.keys(self) if not _k.startswith('_')]
+
+  def __iter__(self):
+    """Iterate over keys, excluding private ones."""
+    return iter(self._keys)
 
   def __add__(self, other):
     if not self.keys():
@@ -96,6 +102,12 @@ class ObjDict(dict):
 
   def __delattr__(self, name):
     del self[name]
+
+  def __eq__(self, other):
+    """Compare with another dict or ObjDict, ignoring private keys."""
+    if not isinstance(other, (dict, ObjDict)):
+      return False
+    return dict(self.items()) == dict(other.items() if hasattr(other, 'items') else other)
 
   def to_dict(self):
     base = {}
@@ -177,6 +189,22 @@ class ObjDict(dict):
   def unfreeze(self):
     self.freeze(False)
 
+  class _FrozenContext:
+    def __init__(self, obj_dict):
+      self.obj_dict = obj_dict
+      self.was_frozen = object.__getattribute__(obj_dict, "__frozen")
+
+    def __enter__(self):
+      self.obj_dict.freeze(True)
+      return self.obj_dict
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+      self.obj_dict.freeze(self.was_frozen)
+
+  def frozen(self):
+    """Context manager for temporarily freezing the ObjDict."""
+    return self._FrozenContext(self)
+
   def items(self):
     """Return items, excluding those with keys starting with an underscore."""
     return ((_k, self.get(_k)) for _k in self._keys)
@@ -189,6 +217,43 @@ class ObjDict(dict):
     """Custom representation of the dictionary, excluding private keys."""
     _item_string = ",\n".join([f"  {_k}: {_v}" for _k, _v in self.items()])
     return f"{self.__class__.__name__}(\n{_item_string}\n)"
+
+  def flatten(self, separator='.', prefix=''):
+    """Flatten nested ObjDict into a single level dict with dotted keys."""
+    result = {}
+    for key, value in self.items():
+      new_key = f"{prefix}{separator}{key}" if prefix else key
+      if isinstance(value, ObjDict):
+        result.update(value.flatten(separator, new_key))
+      else:
+        result[new_key] = value
+    return result
+
+  def to_json(self, **kwargs):
+    """Convert to JSON string."""
+    import json
+    return json.dumps(self.to_dict(), **kwargs)
+
+  @classmethod
+  def from_json(cls, json_str, **kwargs):
+    """Create ObjDict from JSON string."""
+    import json
+    data = json.loads(json_str, **kwargs)
+    return cls(data)
+
+  def save_json(self, path, **kwargs):
+    """Save to JSON file."""
+    import json
+    with open(path, 'w') as f:
+      json.dump(self.to_dict(), f, **kwargs)
+
+  @classmethod
+  def load_json(cls, path, **kwargs):
+    """Load from JSON file."""
+    import json
+    with open(path, 'r') as f:
+      data = json.load(f, **kwargs)
+    return cls(data)
 
 # Backward compatibility
 Dict = ObjDict
