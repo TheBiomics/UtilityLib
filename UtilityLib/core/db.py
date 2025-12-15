@@ -1,100 +1,71 @@
 from .cmd import CommandUtility
 from ..lib.obj import ObjDict
+from ..lib.path import EntityPath
+from ..lib.db import EntityDB, SQLiteDB, SQLDB
 
 class DatabaseUtility(CommandUtility):
   def __init__(self, *args, **kwargs):
     self.__defaults = {
-        "db_path": None,
-        "engine": None,
-        "is_connected": False,
+        "db_path"    : None,
+        "engine"     : None,
+        "_db_instance": None,
       }
     self.__defaults.update(kwargs)
     super().__init__(**self.__defaults)
 
-  _table_info = None
-  def set_table_info(self, *args, **kwargs):
-    try:
-      from sqlalchemy import MetaData
-      _md = MetaData()
-      _md.reflect(bind=self.engine)
-      self._table_info = ObjDict(_md.tables)
-    except:
-      pass
-
   @property
   def tables(self):
-    if self._table_info is None:
-      self.set_table_info()
-    return self._table_info
+    """Get table metadata from database engine."""
+    return self._db_instance.tables if self._db_instance else {}
+
+  @property
+  def DB_Instance(self):
+    """Get current database instance."""
+    return self._db_instance
 
   def connect_mysql(self, *args, **kwargs):
+    """Connect to MySQL/PostgreSQL database using EntityDB.
+
+    :param args: Positional arguments for EntityDB
+    :param kwargs: Keyword arguments (user, password, database, host, port, db_type, etc.)
+    :return: SQLAlchemy engine
     """
-    Connect with MySQL Database using sqlalchemy
-
-      :param db_user:
-      :param db_password:
-      :param db_name:
-      :param db_host:
-      :param db_port:
-      :param db_params:
-
-    :return: engine property
-    """
-    # My SQL Connection
-    # create_engine(..., execution_options={"isolation_level": "REPEATABLE READ"},..)
-
-    self.__mysql_params = {
-      "db_user": kwargs.get("db_user", args[0] if len(args) > 0 else None),
-      "db_password": kwargs.get("db_password", args[1] if len(args) > 1 else ""),
-      "db_name": kwargs.get("db_name", args[2] if len(args) > 2 else None),
-      "db_host": kwargs.get("db_host", args[3] if len(args) > 3 else "localhost"),
-      "db_port": kwargs.get("db_port", args[4] if len(args) > 4 else "3306"),
-      "db_params": kwargs.get("db_params", args[5] if len(args) > 5 else {}),
-    }
-    self.__mysql_params.update(kwargs)
-    self.update_attributes(self, self.__mysql_params)
-    if self.engine is None and self.db_user is not None and self.db_name is not None:
-      from sqlalchemy import create_engine
-      _engine_uri = f"mysql+pymysql://{self.db_user}:{self.db_password}@{self.db_host}:{self.db_port}/{self.db_name}"
-      self.engine = create_engine(_engine_uri, **self.db_params)
+    if self._db_instance is None or not isinstance(self._db_instance, SQLDB):
+      self._db_instance = SQLDB(*args, **kwargs)
+      if hasattr(self._db_instance, 'engine'):
+        self.engine = self._db_instance.engine
     return self.engine
 
-  def set_sqlite_engine(self, db_path):
-    try:
-      from sqlalchemy import create_engine
-
-      if self.OS.name == "nt":
-        self.engine = create_engine(f"sqlite:///{self.db_path}")
-      else:
-        self.engine = create_engine(f"sqlite:////{self.db_path}")
-
-      self.is_connected = True
-      return self.db_path
-    except Exception as _e:
-      print(f"Failed to connect to SQLite DB: {_e}")
-
-    return False
-
   def connect_sqlite(self, *args, **kwargs):
-    """Connects with SQLite Database
+    """Wrapper method for lib.SQLiteDB
 
-    :param db_path|0: Path to SQLite Database File (Optionally to be created)
-    :returns: str|None
-
+    :param args: Arguments passed to SQLiteDB
+    :param kwargs: Keyword arguments passed to SQLiteDB
+    :return: SQLAlchemy engine
     """
-    self.db_path = kwargs.get("db_path", args[0] if len(args) > 0 else getattr(self, "db_path", None))
+    if self._db_instance is None or not isinstance(self._db_instance, SQLiteDB):
+      self._db_instance = SQLiteDB(*args, **kwargs)
+      if hasattr(self._db_instance, 'engine'):
+        self.engine = self._db_instance.engine
+    return self.engine
 
-    if not self.db_path:
-      self.log_error(f"DB path is not provided.")
-      return None
+  def connect_db(self, *args, **kwargs):
+    """Connect to database using EntityDB.
 
-    if self.is_connected:
-      return self.db_path
+    :param args: Positional arguments for EntityDB
+    :param kwargs: Keyword arguments (user, password, database, host, port, db_type, etc.)
+    :return: SQLAlchemy engine
+    """
+    if not args or not kwargs:
+      kwargs['db_path'] = self.db_path
 
-    return self.set_sqlite_engine(self.db_path)
+    if self._db_instance is None:
+      self._db_instance = EntityDB(*args, **kwargs)
+      if hasattr(self._db_instance, 'engine'):
+        self.engine = self._db_instance.engine
+    return self.engine
 
-
-  db_connect = connect_sqlite
+  db_connect = connect_db
 
   # Accessory functions using pandas
   def set_table_data(self, *args, **kwargs):

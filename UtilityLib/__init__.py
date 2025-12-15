@@ -11,6 +11,7 @@ from .lib.schedule import ScheduleManager
 from .lib.task import TaskManager
 from .lib.step import StepManager
 from .lib.cmd import CMDLib
+from .lib.crypt import CryptData
 
 from .project import ProjectManager
 from .office import OfficeManager

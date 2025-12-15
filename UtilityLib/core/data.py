@@ -636,7 +636,7 @@ class DataUtility(FileSystemUtility):
       _collector = _nested
     return _collector
 
-  def flatten_dict(self, d, parent_key=""):
+  def flatten_dict(self, data, parent_key=""):
     """
       Flattens nested dict/lists into PHP-style bracket notation.
       Example:
@@ -649,15 +649,15 @@ class DataUtility(FileSystemUtility):
     """
     items = {}
 
-    if isinstance(d, dict):
-      for k, v in d.items():
+    if isinstance(data, dict):
+      for k, v in data.items():
         new_key = f"{parent_key}[{k}]" if parent_key else k
         if isinstance(v, (dict, list)):
           items.update(self.flatten_dict(v, new_key))
         else:
           items[new_key] = v
-    elif isinstance(d, list):
-      for i, v in enumerate(d):
+    elif isinstance(data, list):
+      for i, v in enumerate(data):
         new_key = f"{parent_key}[{i}]"
         if isinstance(v, (dict, list)):
           items.update(self.flatten_dict(v, new_key))
@@ -665,6 +665,7 @@ class DataUtility(FileSystemUtility):
           items[new_key] = v
     return items
 
+  flatten_map = flatten_dict
 
   def product(self, *args, **kwargs):
     """@generator Provides product of the given items
@@ -756,33 +757,77 @@ class DataUtility(FileSystemUtility):
     _result = max(_results, key=len) if len(_results) > 0 else ""
     return _result
 
+  def parse_key_string(self, key_string):
+    """Parse key string into list of keys, auto-detecting separator.
+
+    Supports:
+    - Dot notation: key1.key2.1.textVal
+    - Pipe notation: key1|key2|1|textVal
+    - Bracket notation: [key1][key2][1][textVal]
+    - Mixed notation: planname[0].key2[5].planNameVal
+
+    Returns list of keys.
+    """
+    if not isinstance(key_string, str):
+      return [key_string]
+
+    # Check for bracket notation (pure or mixed)
+    if '[' in key_string and ']' in key_string:
+      # Find all bracketed parts or non-bracket/dot parts
+      parts = self.REGEX.findall(r'\[([^\]]+)\]|[^\.\[\]]+', key_string)
+      return [p for p in parts if p]  # filter out empty
+    else:
+      # Count separators
+      dot_count = key_string.count('.')
+      pipe_count = key_string.count('|')
+      if dot_count > pipe_count:
+        return key_string.split('.')
+      elif pipe_count > dot_count:
+        return key_string.split('|')
+      else:
+        # Tie, prefer dot if present, else pipe
+        if '.' in key_string:
+          return key_string.split('.')
+        else:
+          return key_string.split('|')
+
   def get_deep_key(self, *args, **kwargs):
     """Get method to access nested key
 
       @params
       0|obj: dictionary
-      1|keys: string, pipe separated string, list, tuple, set
+      1|keys: string (with auto-detected separator), list, tuple, set
       2|default:
-      3|sep: '|'
+      3|sep: '|' (fallback, but auto-detection preferred)
 
       @example
-      get_deep_key(_dict, (key, subkey, subsubkey), _default)
+      get_deep_key(_dict, "key1.key2.1.textVal", _default)
+      get_deep_key(_dict, "key1|key2|1|textVal", _default)
+      get_deep_key(_dict, "[key1][key2][1][textVal]", _default)
+      get_deep_key(_dict, "planname[0].key2[5].planNameVal", _default)
 
       @return
       matched key value or default
 
       @updated 20240517: numbers as string
+      @updated 20251127: auto-detect separator
     """
-    _obj = args[0] if len(args) > 0 else kwargs.get("obj", {})
-    _keys = args[1] if len(args) > 1 else kwargs.get("keys", ())
-    _default = args[2] if len(args) > 2 else kwargs.get("default")
-    _sep = args[3] if len(args) > 3 else kwargs.get("sep", "|")
 
-    _instance_list = (tuple, set, list)
-    _instance_dict = (dict)
+    _obj     = args[0] if len(args) > 0 else kwargs.get("obj", {})
+    _keys    = args[1] if len(args) > 1 else kwargs.get("keys", ())
+    _default = args[2] if len(args) > 2 else kwargs.get("default")
+    _sep     = args[3] if len(args) > 3 else kwargs.get("sep", "|")
+
+    _instance_list     = (tuple, set, list)
+    _instance_dict     = (dict)
     _instance_singluar = (str, int)
 
-    _keys = _keys if isinstance(_keys, _instance_list) else _keys.split(_sep)
+    if isinstance(_keys, str):
+      _keys = self.parse_key_string(_keys)
+    elif isinstance(_keys, _instance_list):
+      pass  # already list
+    else:
+      _keys = str(_keys).split(_sep)  # fallback
 
     for _k in _keys:
       # hasattr(, 'get') & str|int=> _dict key, int => list, tuple, or set
@@ -798,6 +843,8 @@ class DataUtility(FileSystemUtility):
     return _obj
 
   dotkey_value = get_deep_key
+  deepkey      = get_deep_key
+  keyvalue     = get_deep_key
 
   def clean_key(self, *args, **kwargs):
     """Cleans a string to be used a key

@@ -28,14 +28,14 @@ class BrowserManager(ProjectManager):
       self.cmd_run("pip install " + " ".join(_not_installed), shell=True)
 
   def set_selectors(self, *args, **kwargs):
-    self.by_id = By.ID
-    self.by_name = By.NAME
-    self.by_xpath = By.XPATH
-    self.by_link_text = By.LINK_TEXT
+    self.by_id             = By.ID
+    self.by_name           = By.NAME
+    self.by_xpath          = By.XPATH
+    self.by_link_text      = By.LINK_TEXT
     self.by_link_text_part = By.PARTIAL_LINK_TEXT
-    self.by_tag = By.TAG_NAME
-    self.by_class = By.CLASS_NAME
-    self.by_css = By.CSS_SELECTOR
+    self.by_tag            = By.TAG_NAME
+    self.by_class          = By.CLASS_NAME
+    self.by_css            = By.CSS_SELECTOR
 
   def get_status_code(self):
       _last_pg_req = [_r for _r in self.wd_instance.requests if _r.url == self.wd_instance.current_url]
@@ -48,8 +48,8 @@ class BrowserManager(ProjectManager):
     self.wd_instance.save_screenshot(_screenshot_path)
 
     _original_w_h = self.wd_instance.get_window_size()
-    _req_width = self.wd_instance.execute_script('return document.body.parentNode.scrollWidth')
-    _req_height = self.wd_instance.execute_script('return document.body.parentNode.scrollHeight')
+    _req_width    = self.wd_instance.execute_script('return document.body.parentNode.scrollWidth')
+    _req_height   = self.wd_instance.execute_script('return document.body.parentNode.scrollHeight')
     self.wd_instance.set_window_size(max([_req_width, 1440]), _req_height)
     # self.wd_instance.save_screenshot(_screenshot_path)  # has scrollbar
     self.wd_instance.find_element(self.wd_by.TAG_NAME, 'body').screenshot(_screenshot_path)
@@ -58,7 +58,7 @@ class BrowserManager(ProjectManager):
   def fullpage_screenshot(self, *args, **kwargs):
     _screenshot_path = args[0] if len(args) > 0 else kwargs.get("screenshot_path", 'screenshot.png')
     try:
-      total_width = self.wd_instance.execute_script("return document.body.scrollWidth")
+      total_width  = self.wd_instance.execute_script("return document.body.scrollWidth")
       total_height = self.wd_instance.execute_script("return document.body.scrollHeight")
       self.wd_instance.set_window_size(total_width, total_height)
       self.wd_instance.save_screenshot(_screenshot_path)

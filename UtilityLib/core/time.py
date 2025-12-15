@@ -43,6 +43,13 @@ class TimeUtility(BaseUtility):
     return self.now(format="%Y-%m-%d")
 
   @property
+  def datetime(self):
+    """Datetime format: 2024-10-24 12:54:54"""
+    return self.now(format="%Y-%m-%d %H:%M:%S")
+
+  dt = datetime
+
+  @property
   def day(self):
     return self.now().day
 

@@ -1,4 +1,4 @@
-[![PyPI Downloads](https://static.pepy.tech/badge/utilitylib)](https://pepy.tech/projects/utilitylib)
+[![PyPI Downloads](https://static.pepy.tech/personalized-badge/utilitylib?period=total&units=INTERNATIONAL_SYSTEM&left_color=BLUE&right_color=BLACK&left_text=All)](https://pepy.tech/projects/utilitylib) [![PyPI Downloads](https://static.pepy.tech/personalized-badge/utilitylib?period=monthly&units=INTERNATIONAL_SYSTEM&left_color=BLUE&right_color=BLACK&left_text=This+Month)](https://pepy.tech/projects/utilitylib)
 
 # UtilityLib
 UtilityLib is a unified library of basic modules that provides a collection of ready-to-use functions for various file system oprerations and data processing.

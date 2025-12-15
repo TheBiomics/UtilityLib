@@ -417,9 +417,11 @@ class EntityPath(Path):
     if self.exists():
       return self
     elif len(self.suffixes) > 0:
+      # Assuming it is a file
+      self.resolved().parent().mkdir(parents=True, exist_ok=True)
       self.touch()
     else:
-      Path(str(self)).mkdir(parents=True, exist_ok=True)
+      Path(str(self.resolved())).mkdir(parents=True, exist_ok=True)
 
     return self
 
@@ -513,6 +515,10 @@ class EntityPath(Path):
     """Return the absolute path."""
     return str(self.expanduser().resolve())
 
+  def resolved(self):
+    """Return the absolute path."""
+    return self.expanduser().resolve()
+
   def rel_path(self, _path=None):
     """Return the relative path from the current working directory."""
     try:
@@ -549,7 +555,9 @@ class EntityPath(Path):
   def stats(self):
     if self._stats is None:
       self.get_stats()
-    return self._stats
+
+    _stats_dict = {k.replace('st_', ''): getattr(self._stats, k) for k in dir(self._stats) if k.startswith('st_')}
+    return _stats_dict
 
   def get_stats(self):
     self._stats = OS.stat(str(self))

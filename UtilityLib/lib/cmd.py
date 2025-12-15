@@ -97,6 +97,106 @@ class CMDLib(metaclass=_MetaCMDLib):
       return OS.access(path, OS.X_OK)
     return False
 
+
+  """CLI Management"""
+  @staticmethod
+  def init_cli(*args, **kwargs):
+    import argparse as ArgParser
+
+    _version = kwargs.get("version", args[0] if len(args) > 0 else "unknown")
+    cmd_arg_parser = ArgParser.ArgumentParser(prog=_version)
+    cmd_arg_parser.add_argument('-v', '--version', action='version', version=_version)
+    return cmd_arg_parser
+
+  @staticmethod
+  def flatten_args(*args, **kwargs):
+    _args = args[0] if len(args) > 0 else kwargs.get("mapping", [])
+    _flattened = {}
+    if isinstance(_args, (dict)):
+      _flattened = {_k: _v[0] if len(_v) == 1 else _v for _k, _v in _args.items()}
+    return _flattened
+
+  @staticmethod
+  def _unregistered_arg_parser(*args, **kwargs):
+    """Processes unregistered arguments from commandline
+
+      @accepts
+      List/Tuple
+
+      @return
+      dict() with/out values
+    """
+    _un_args = kwargs.get("unregistered_args", args[0] if len(args) > 0 else [])
+
+    _arg_aggregator = {}
+    _key = None
+    for _ua in _un_args:
+
+      if _ua.startswith(("-", "--")):
+        _key = _ua.strip("-")
+        _key, _attached_value = _key.split("=", 1) if "=" in _key else (_key, "")
+
+        if not _key in _arg_aggregator.keys():
+          _arg_aggregator[_key] = []
+
+        _arg_aggregator[_key].append(_attached_value) if len(_attached_value) > 0 else None
+
+      elif _key and _key in _arg_aggregator.keys():
+        _arg_aggregator[_key].append(_ua)
+
+    return CMDLib.flatten_args(_arg_aggregator)
+
+  @staticmethod
+  def get_registered_args(*args, **kwargs):
+    """
+      @example
+
+      _cli_settings = {
+        ...
+        "db_path": (['-db'], None, None, 'Provide path to the database for Sieve project.', {}),
+        "path_base": (['-b'], "*", [OS.getcwd()], 'Provide base directory to run the process.', {}),
+        ...
+      }
+    """
+
+    cmd_arg_parser = kwargs.get("cmd_arg_parser")
+    if cmd_arg_parser is None:
+      cmd_arg_parser = CMDLib.init_cli(**kwargs)
+
+    _cli_args = kwargs.get("cli_args", args[0] if len(args) > 0 else {})
+
+    for _arg_key, _arg_value in _cli_args.items():
+
+      _keys = _arg_value[0]
+      _keys.append(f"--{_arg_key}")
+
+      _keys = [_k if "-" in _k else f"-{_k}" for _k in _keys] # Add atleast one - to the argument identifier
+
+      _cmd_keys = _arg_value[0]
+      _nargs    = _arg_value[1]
+      _default  = _arg_value[2]
+      _help     = _arg_value[3]
+
+      if not '%(default)s' in _help:
+        _help = f"{_help} (Default: %(default)s)"
+
+      _kws = _arg_value[4]
+      _kws.update({
+        "nargs"  : _nargs,
+        "default": _default,
+        "help"   : _help,
+      })
+
+      cmd_arg_parser.add_argument(*list(_cmd_keys), **_kws)
+
+    _reg_args, _unreg_args = cmd_arg_parser.parse_known_args()
+    _reg_args = vars(_reg_args)
+    _params = CMDLib._unregistered_arg_parser(_unreg_args)
+    _params.update(_reg_args)
+    return _params
+
+  get_cli_args = get_registered_args
+
   @staticmethod
   def get_args(callback: callable = None):
     """Method to parse various formats of command line arguments
@@ -114,7 +214,7 @@ class CMDLib(metaclass=_MetaCMDLib):
       multiple values per key (e.g., --key val1 val2 val3)
     """
     args = SYS.argv[1:]
-    parsed = {}
+    keywords = {}
     positional = []
     i = 0
     while i < len(args):
@@ -137,15 +237,15 @@ class CMDLib(metaclass=_MetaCMDLib):
             value = values
         else:
           value = True
-        if key in parsed:
-          if not isinstance(parsed[key], list):
-            parsed[key] = [parsed[key]]
+        if key in keywords:
+          if not isinstance(keywords[key], list):
+            keywords[key] = [keywords[key]]
           if isinstance(value, list):
-            parsed[key].extend(value)
+            keywords[key].extend(value)
           else:
-            parsed[key].append(value)
+            keywords[key].append(value)
         else:
-          parsed[key] = value
+          keywords[key] = value
       elif arg.startswith('-'):
         flags = arg[1:]
         if len(flags) == 1:
@@ -162,33 +262,35 @@ class CMDLib(metaclass=_MetaCMDLib):
               value = values
           else:
             value = True
-          if key in parsed:
-            if not isinstance(parsed[key], list):
-              parsed[key] = [parsed[key]]
+          if key in keywords:
+            if not isinstance(keywords[key], list):
+              keywords[key] = [keywords[key]]
             if isinstance(value, list):
-              parsed[key].extend(value)
+              keywords[key].extend(value)
             else:
-              parsed[key].append(value)
+              keywords[key].append(value)
           else:
-            parsed[key] = value
+            keywords[key] = value
         else:
           # Multiple flags like -abc
           for flag in flags:
-            if flag in parsed:
-              if not isinstance(parsed[flag], list):
-                parsed[flag] = [parsed[flag]]
-              parsed[flag].append(True)
+            if flag in keywords:
+              if not isinstance(keywords[flag], list):
+                keywords[flag] = [keywords[flag]]
+              keywords[flag].append(True)
             else:
-              parsed[flag] = True
+              keywords[flag] = True
       else:
         positional.append(arg)
       i += 1
 
     callback_result = None
     if callback and callable(callback):
-      callback_result = callback(*positional, **parsed)
+      callback_result = callback(*positional, **keywords)
 
-    return positional, parsed, callback_result
+    return positional, keywords, callback_result
+
+  """Command Execution and System Utilities"""
 
   @staticmethod
   def run(cmd, capture_output=False, check=False, timeout=None, cwd=None, env=None, shell=None):

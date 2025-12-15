@@ -4,19 +4,22 @@
 
 [project]
   name = "UtilityLib"
-  description = "Python Helper for Repetitive Tasks with File and Data Management"
-  version = "2.20.1"
+  description = "A comprehensive Python utility library for file management, data processing, and automation of repetitive tasks"
+  version = "2.21.3"
   authors = [
     { name="Vishal Kumar Sahu", email="mail@vishalkumarsahu.in" },
   ]
   readme = "README.md"
   license = {file = "LICENSE"}
-  requires-python = ">=3.8, <3.13"
+  requires-python = ">=3.8, <3.15"
   classifiers = [
     'Operating System :: OS Independent',
     'Intended Audience :: Science/Research',
     'Programming Language :: Python :: 3.10',
     'Programming Language :: Python :: 3.11',
+    'Programming Language :: Python :: 3.12',
+    'Programming Language :: Python :: 3.13',
+    'Programming Language :: Python :: 3.14',
   ]
   dependencies = [
     'pandas',
