@@ -447,7 +447,7 @@ class EntityPath(Path):
     destination = EntityPath(destination)
     # If target parent directories are not present
     if not destination.parent().exists():
-      destination.parent().mkdir(parents=True, exist_ok=True)
+      destination.validate()
 
     if self.is_file():
       _SHUTIL.copy(str(self), str(destination))

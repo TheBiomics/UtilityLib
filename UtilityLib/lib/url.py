@@ -1,4 +1,3 @@
-import requests
 from urllib.parse import urlparse, urlunparse, urlencode, parse_qs
 
 class EntityURL:
@@ -17,6 +16,13 @@ class EntityURL:
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
         "Accept": "*/*",  # Accept all content types
       }
+
+  @property
+  def requests(self):
+    """Lazy import of requests module."""
+    import requests
+    return requests
+
   def __init__(self, url):
     self._URL = url
     self._original_url = url  # Store the original URL as a string
@@ -39,12 +45,12 @@ class EntityURL:
     """Fetch and cache the response for the URL."""
     if self._response is None:
       try:
-        response = requests.head(self._URL, headers=self.headers, allow_redirects=True)
+        response = self.requests.head(self._URL, headers=self.headers, allow_redirects=True)
         self._response = response
         if response.url != self._URL:  # If the URL was redirected
           self._URL = response.url
           self.parsed = urlparse(self._URL)
-      except requests.RequestException as e:
+      except self.requests.RequestException as e:
         print(f"Error fetching URL: {e}")
         self._response = None
 
@@ -117,9 +123,9 @@ class EntityURL:
   def status(self):
     """Check if the URL is reachable."""
     try:
-      response = requests.head(self._URL, allow_redirects=True)
+      response = self.requests.head(self._URL, allow_redirects=True)
       return response.status_code
-    except requests.RequestException:
+    except self.requests.RequestException:
       return -1
 
   @property
@@ -131,11 +137,11 @@ class EntityURL:
     - Status codes between 300 and 404: Redirects or not found.
     """
     try:
-      response = requests.head(self.url, allow_redirects=True)
+      response = self.requests.head(self.url, allow_redirects=True)
       if response.status_code < 300 or response.status_code >= 500:
         return True
       return False
-    except requests.RequestException:
+    except self.requests.RequestException:
       return False
 
   @property

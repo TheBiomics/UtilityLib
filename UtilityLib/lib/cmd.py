@@ -9,9 +9,14 @@ import subprocess as SUBPROCESS
 import os as OS
 from pathlib import Path
 from typing import Union
-import psutil as PC
 
 class _MetaCMDLib(type):
+  @property
+  def _PC(cls):
+    """Lazy import of psutil module."""
+    import psutil
+    return psutil
+
   @property
   def cpu(cls):
     total = cls.get_cpu_total()
@@ -49,12 +54,12 @@ class _MetaCMDLib(type):
   @property
   def load(cls):
     """CPU load percentage (0-100). Use > 80 to check if system is busy."""
-    return PC.cpu_percent(interval=0.1)
+    return cls._PC.cpu_percent(interval=0.1)
 
   @property
   def disk(cls):
     """Disk usage for root filesystem."""
-    usage = PC.disk_usage('/')
+    usage = cls._PC.disk_usage('/')
     return {
       'total': usage.total,
       'used': usage.used,
@@ -66,16 +71,22 @@ class _MetaCMDLib(type):
   def uptime(cls):
     """System uptime in seconds."""
     import time
-    return time.time() - PC.boot_time()
+    return time.time() - cls._PC.boot_time()
 
   @property
   def processes(cls):
     """Number of running processes."""
-    return len(PC.pids())
+    return len(cls._PC.pids())
 
 
 
 class CMDLib(metaclass=_MetaCMDLib):
+  @staticmethod
+  def _get_psutil():
+    """Lazy import of psutil module."""
+    import psutil
+    return psutil
+
   @staticmethod
   def which(cmd):
     return SHUTIL.which(cmd)
@@ -352,6 +363,7 @@ class CMDLib(metaclass=_MetaCMDLib):
   @staticmethod
   def get_open_files():
     """Returns list of open files or open file handles by system"""
+    PC = CMDLib._get_psutil()
     _p = PC.Process()
     return _p.open_files()
 
@@ -364,6 +376,7 @@ class CMDLib(metaclass=_MetaCMDLib):
 
     :return: Dict with keys: cpu_total, cpu_percent, memory_total, memory_available, memory_percent, swap_total, swap_free, swap_percent, processes
     """
+    PC = CMDLib._get_psutil()
     vm = PC.virtual_memory()
     sm = PC.swap_memory()
     return {
@@ -381,41 +394,49 @@ class CMDLib(metaclass=_MetaCMDLib):
   @staticmethod
   def get_cpu_total():
     """Get total CPU count (logical cores)."""
+    PC = CMDLib._get_psutil()
     return PC.cpu_count(logical=True)
 
   @staticmethod
   def get_cpu_available():
     """Get available CPU percentage (100 - current usage)."""
+    PC = CMDLib._get_psutil()
     return 100 - PC.cpu_percent(interval=0.1)
 
   @staticmethod
   def get_threads_total():
     """Get total threads (approximated as logical CPUs)."""
+    PC = CMDLib._get_psutil()
     return PC.cpu_count(logical=True)
 
   @staticmethod
   def get_threads_available():
     """Get available threads percentage (approximated as 100 - CPU usage)."""
+    PC = CMDLib._get_psutil()
     return 100 - PC.cpu_percent(interval=0.1)
 
   @staticmethod
   def get_memory_total():
     """Get total RAM in bytes."""
+    PC = CMDLib._get_psutil()
     return PC.virtual_memory().total
 
   @staticmethod
   def get_memory_available():
     """Get available RAM in bytes."""
+    PC = CMDLib._get_psutil()
     return PC.virtual_memory().available
 
   @staticmethod
   def get_swap_total():
     """Get total swap memory in bytes."""
+    PC = CMDLib._get_psutil()
     return PC.swap_memory().total
 
   @staticmethod
   def get_swap_available():
     """Get available swap memory in bytes."""
+    PC = CMDLib._get_psutil()
     return PC.swap_memory().free
 
   @staticmethod
@@ -426,6 +447,7 @@ class CMDLib(metaclass=_MetaCMDLib):
     :param limit: Number of top processes to return.
     :return: List of dicts with 'pid', 'name', 'cpu_percent'.
     """
+    PC = CMDLib._get_psutil()
     processes = []
     for proc in PC.process_iter():
       try:
