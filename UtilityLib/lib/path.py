@@ -1,12 +1,16 @@
-from pathlib import Path
+from pathlib import PosixPath, WindowsPath
 import os as OS
 from itertools import islice
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Union
+
+
 
 if TYPE_CHECKING:
   from .file import EntityFile
 
-class EntityPath(Path):
+_BasePath = WindowsPath if OS.name == "nt" else PosixPath
+
+class EntityPath(_BasePath):
   """
     An extension of Python's built-in `Path` class to simplify and enhance file and directory handling.
 
@@ -43,8 +47,6 @@ class EntityPath(Path):
     This class is designed to make filesystem operations more intuitive and reduce repetitive boilerplate code, improving readability and efficiency in path manipulation tasks.
   """
 
-  _flavour = Path('.')._flavour
-
   def __new__(cls, *args, **kwargs) -> None:
     # Filter out None and empty arguments properly
     _valid_args = [
@@ -52,7 +54,7 @@ class EntityPath(Path):
       for arg in args
       if arg is not None and str(arg).strip()
     ] or ['.']
-    _valid_args[0] = str(Path(_valid_args[0]).expanduser().resolve())
+    _valid_args[0] = str(_BasePath(_valid_args[0]).expanduser().resolve())
     return super().__new__(cls, *_valid_args, **kwargs)
 
   def len(self):
@@ -421,7 +423,7 @@ class EntityPath(Path):
       self.resolved().parent().mkdir(parents=True, exist_ok=True)
       self.touch()
     else:
-      Path(str(self.resolved())).mkdir(parents=True, exist_ok=True)
+      _BasePath(str(self.resolved())).mkdir(parents=True, exist_ok=True)
 
     return self
 
@@ -522,7 +524,7 @@ class EntityPath(Path):
   def rel_path(self, _path=None):
     """Return the relative path from the current working directory."""
     try:
-      return (self.full_path).relative_to(_path or Path.cwd())
+      return (self.full_path).relative_to(_path or _BasePath.cwd())
     except:
       return self
 
@@ -727,11 +729,11 @@ class EntityPath(Path):
 
   def tree_gen(self, level: int = -1, limit_to_directories: bool = False):
     """Yield the tree structure lazily, line by line."""
-    dir_path = Path(self)
+    dir_path = _BasePath(self)
     files = 0
     directories = 0
 
-    def inner(dir_path: Path, prefix: str = "", level=-1):
+    def inner(dir_path: Union[PosixPath, WindowsPath], prefix: str = "", level=-1):
       nonlocal files, directories
       if not level:
         return
@@ -775,6 +777,6 @@ class EntityPath(Path):
     result = "\n".join(lines)
 
     if to_file:
-      Path(to_file).write_text(result, encoding="utf-8")
+      _BasePath(to_file).write_text(result, encoding="utf-8")
 
     return result
