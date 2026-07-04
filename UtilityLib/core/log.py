@@ -54,7 +54,7 @@ class LoggingUtility(TimeUtility):
 
   def _set_console_log_handler(self, *args, **kwargs):
     """Set Console Log Handler"""
-    if not self.log_to_console is True:
+    if self.log_to_console is not True:
       return
 
     if isinstance(self.log_level, (str)):
@@ -72,7 +72,7 @@ class LoggingUtility(TimeUtility):
     if not self.log_to_file is True:
       return
 
-    if not self.log_file_path is None:
+    if self.log_file_path is not None:
       _fh = _Logging.FileHandler(self.log_file_path)
       _fh.setLevel(_Logging.DEBUG)
 
@@ -107,7 +107,7 @@ class LoggingUtility(TimeUtility):
     if self.LogHandler is None:
       self.set_logging()
 
-    if not self.LogHandler is None:
+    if self.LogHandler is not None:
       _lh = getattr(self.LogHandler, _log_type)
       if _lh:
         _lh(_message)

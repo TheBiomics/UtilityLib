@@ -219,7 +219,7 @@ class TypeSQL(BaseDB):
       _md = MetaData()
       _md.reflect(bind=self.engine)
       self._table_info = ObjDict(_md.tables)
-    except:
+    except Exception:
       pass
 
   @property

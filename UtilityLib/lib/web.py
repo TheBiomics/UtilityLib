@@ -1,7 +1,12 @@
-from flask import Flask, jsonify as FlaskJSON
-from flask import request as _Request
 import signal as Signal
 import threading as Threader
+
+try:
+  from flask import Flask, jsonify as FlaskJSON
+  from flask import request as _Request
+  _FLASK_AVAILABLE = True
+except ImportError:
+  _FLASK_AVAILABLE = False
 
 class WebManager():
   webapp_name = 'UL-Web-Server'
@@ -9,11 +14,13 @@ class WebManager():
   webapp_port = '5007'
   webapp_debug = True
   webapp = None
-  Request = _Request
   allowed_methods = ['GET', 'POST']
 
   def __init__(self, *args, **kwargs):
+    if not _FLASK_AVAILABLE:
+      raise ImportError("Install flask: pip install flask")
     self.webapp = Flask(self.webapp_name)
+    self.Request = _Request
     self.webapp.config['CORS_HEADERS'] = 'Content-Type'
 
     _defaults = {
@@ -53,11 +60,11 @@ class WebManager():
     _existing_threads = [t.name for t in Threader.enumerate()]
     if not self.webapp_name in _existing_threads:
       self.server_thread = Threader.Thread(target=_webserver_listen, name=self.webapp_name)
-      self.server_thread.setDaemon(True)
+      self.server_thread.daemon = True
       self.server_thread.start()
       print(f'Server Started at {_host}:{_port}')
     else:
-      self.log_info('Not starting thread as already started.')
+      print('WebManager: Server thread already running.')
 
   def _shutdown(self):
     """WIP"""

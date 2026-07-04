@@ -92,8 +92,6 @@ class StepManager(dict):
       self.current = self.stages_list[0]
     return self.get_stage()
 
-  __next__ = next_stage
-
   @property
   def next(self):
     self.next_stage()
@@ -113,11 +111,6 @@ class StepManager(dict):
     return self.get_stage()
 
   previous = prev
-
-  @property
-  def next(self):
-    self.next_stage()
-    return self.get_stage()
 
   def reset(self):
     self.current = self.stages_list[0]

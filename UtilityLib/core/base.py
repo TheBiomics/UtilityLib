@@ -1,4 +1,4 @@
-from . import __version__, __description__, __build__, __name__
+from ..__metadata__ import __version__, __description__, __build__, __name__
 import importlib as MODULE_IMPORTER
 import os as _OS
 import sys as _SYSTEM
@@ -162,7 +162,7 @@ class BaseUtility:
         _import_stmt = f"{_package}.{_module}" # "import PIL.Image <=> from PIL import Image"
         _module_instance = MODULE_IMPORTER.import_module(_import_stmt)
 
-    except:
+    except Exception:
       ...
 
     if not _module_instance:
@@ -259,14 +259,14 @@ class BaseUtility:
         __i = MODULE_IMPORTER.import_module(_module)
         hasattr(self, 'log_debug') and  self.log_debug(f"BASE_03: Imported {_module}")
         _module_instance = __i
-      except:
+      except Exception:
         self.log_error(f"`{_module} as {_as}` could not be imported.")
         try:
           hasattr(self, 'log_debug') and  self.log_debug(f"BASE_04: {_module} could not be imported. Trying to import {_alternate}.")
           if _alternate and isinstance(_alternate, (str)):
             __i = MODULE_IMPORTER.import_module(_alternate)
             _module_instance = __i
-        except:
+        except Exception:
           _error_message = f"{_module} as {_as} or its alternate {_alternate} could not be imported."
           self.log_error(_error_message)
 
@@ -310,7 +310,7 @@ class BaseUtility:
     import importlib.util as ILUtil
     try:
       return ILUtil.find_spec(pkg_import_name) is not None
-    except:
+    except Exception:
       self.log_error(f"Package {pkg_import_name} caused an import error.")
       return False
 

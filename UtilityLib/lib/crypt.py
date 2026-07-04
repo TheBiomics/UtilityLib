@@ -1,11 +1,16 @@
 import os
 import base64
 from .path import EntityPath
-from cryptography.hazmat.primitives import serialization
-from cryptography.hazmat.primitives.asymmetric import padding
-from cryptography.hazmat.primitives import hashes
-from cryptography.hazmat.backends import default_backend
-from cryptography.hazmat.primitives.asymmetric import rsa
+
+try:
+    from cryptography.hazmat.primitives import serialization
+    from cryptography.hazmat.primitives.asymmetric import padding
+    from cryptography.hazmat.primitives import hashes
+    from cryptography.hazmat.backends import default_backend
+    from cryptography.hazmat.primitives.asymmetric import rsa
+    _CRYPTO_AVAILABLE = True
+except ImportError:
+    _CRYPTO_AVAILABLE = False
 
 class Crypt:
   def __init__(self, *args, **kwargs):
@@ -29,6 +34,8 @@ class Crypt:
     self._load_keys()
 
   def _load_keys(self):
+    if not _CRYPTO_AVAILABLE:
+        raise ImportError("Install cryptography: pip install cryptography")
     # Load private key
     if EntityPath(self.private_key_path).exists():
       with open(self.private_key_path, 'rb') as f:
@@ -365,6 +372,8 @@ class CryptPass:
       password (str): Password for encryption/decryption
       **kwargs: Additional parameters for future extensibility
     """
+    if not _CRYPTO_AVAILABLE:
+        raise ImportError("Install cryptography: pip install cryptography")
     from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
     from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 

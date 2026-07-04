@@ -1,32 +1,45 @@
 from datetime import datetime as _DT
 import re as _Rx
-import pandas as PD
 
-class DeltaTime(PD.Timedelta):
-  """
-  * Extends Pandas.Timedelta for inclusive functionality from NP.timedelta64 and datetime.timedelta functionality
-  * Nanosecond precision for time
+try:
+  import pandas as PD
+except ImportError:
+  PD = None
 
-  * Example
 
-  Get total hours in fractions
-    _deltatime = DeltaTime('5 hours')
-    _deltatime / Deltatime('1 m') # to get value in minutes
+class DeltaTime:
+  """Extended timedelta with human-readable formatting.
 
+  Falls back to datetime.timedelta if pandas is not installed.
+
+  Usage:
+    DeltaTime(hours=5)
+    DeltaTime('5 hours')
+    DeltaTime(seconds=3600).diff  # -> "1 hour"
   """
   def __init__(self, *args, **kwargs):
-    super().__init__()
+    if PD is not None:
+      self._td = PD.Timedelta(*args, **kwargs)
+    else:
+      from datetime import timedelta
+      self._td = timedelta(*args, **kwargs)
+
+  def __getattr__(self, name):
+    return getattr(self._td, name)
 
   @property
   def humanize(self):
-    """Formats a timedelta object into a human-readable string."""
-    import humanize
-    return humanize.naturaltime(self)
+    """Human-readable relative time (requires humanize package)."""
+    try:
+      import humanize
+      return humanize.naturaltime(self._td)
+    except ImportError:
+      return str(self._td)
 
   @property
   def diff(self):
-    """Formats a timedelta object into a human-readable string."""
-    _seconds = int(round(self.total_seconds()))
+    """Human-readable duration string like '2 hours and 30 minutes'."""
+    _seconds = int(round(self._td.total_seconds()))
     _days, _seconds = divmod(_seconds, 86400)
     _hours, _seconds = divmod(_seconds, 3600)
     _minutes, _seconds = divmod(_seconds, 60)
@@ -50,35 +63,37 @@ class DeltaTime(PD.Timedelta):
     else:
       return f"{', '.join(_string[:-1])}, and {_string[-1]}"
 
-class EntityTime():
-  """EntityTime: To manage time and provide acessary methods
 
-  @ToDo
-  Extend PD.Timestamp???
+class EntityTime:
+  """EntityTime: manage time and provide utility methods.
+
+  Usage:
+    _et = EntityTime()                    # now
+    _et = EntityTime('+6 hours')          # offset
+    _et = EntityTime('20240101120000')    # from timestamp string
+    _et = EntityTime(1704067200)          # from unix timestamp
   """
   DeltaTime = DeltaTime
   DateTime = _DT
   format = '%Y%m%d%H%M%S'
-  Timestamp = PD.Timestamp
+
+  if PD is not None:
+    Timestamp = PD.Timestamp
+  else:
+    Timestamp = _DT
 
   def __init__(self, *args, **kwargs):
-    """
-      _et = EntityTime()
-      _et = EntityTime('+6 hours')
-      _et = EntityTime('+6 hours')
-    """
     self._datetime = _DT.now()
     self.format = kwargs.get('format', self.format)
 
     if len(args) == 1 and isinstance(args[0], EntityTime):
       raise ValueError('Cyclic call.')
     elif len(args) == 1 and isinstance(args[0], str):
-      if _Rx.match(r'^([+-]\d+)\s+(hour|hours|minute|minutes|day|days)$', args[0]):
+      if _Rx.fullmatch(r'^([+-]\d+)\s+(hour|hours|minute|minutes|day|days)$', args[0]):
         self._apply_shift(args[0])
       elif "%" in args[0]:
         self.format = args[0]
       else:
-        # Assume string is a datetime format
         try:
           self._datetime = _DT.strptime(args[0], self.format)
         except Exception as _e:
@@ -86,7 +101,6 @@ class EntityTime():
     elif len(args) == 1 and isinstance(args[0], (int, float)):
       self._datetime = _DT.fromtimestamp(args[0])
     elif len(args) >= 3:
-      # Assume (year, month, day, seconds)
       self._datetime = _DT(args[0], args[1], args[2]) + DeltaTime(seconds=args[3] if len(args) > 3 else 0)
 
   @property
@@ -105,11 +119,6 @@ class EntityTime():
     return self._datetime.strftime(*args, **kwargs)
 
   def get_isoformat(self, *args, **kwargs):
-    """
-      'auto', 'hours', 'minutes', 'seconds', 'milliseconds' and 'microseconds'
-      [sep] -> string in ISO 8601 format, YYYY-MM-DDT[HH[:MM[:SS[.mmm[uuu]]]]][+HH:MM].
-      [timespec] -> string in ISO 8601 format, YYYY-MM-DDT[HH[:MM[:SS[.mmm[uuu]]]]][+HH:MM].
-    """
     return self._datetime.isoformat(*args, **kwargs)
 
   @property
@@ -127,18 +136,13 @@ class EntityTime():
   def __call__(self, *args, **kwargs):
     return EntityTime(*args, **kwargs)
 
-  def _apply_shift(self, time_shift: str = None):
-    """Applies a time shift to the current datetime."""
-
+  def _apply_shift(self, time_shift=None):
     if time_shift is None:
       return
-
     _unit_match = _Rx.match(r'([+-]\d+)\s+(hour|hours|minute|minutes|day|days)', time_shift)
-
     if _unit_match:
       _time_val = int(_unit_match.group(1))
       _time_unit = _unit_match.group(2)
-
       if _time_unit in ['hour', 'hours']:
         delta = DeltaTime(hours=_time_val)
       elif _time_unit in ['minute', 'minutes']:
@@ -150,14 +154,11 @@ class EntityTime():
       self._datetime += delta
 
   def __sub__(self, other):
-    """Calculate the difference between two EntityTime instances or between EntityTime and a string/timestamp."""
     if isinstance(other, (str, float, int)):
       other = EntityTime(other)
     return DeltaTime(self._datetime - other._datetime)
 
   def __rsub__(self, other):
-    """Reverse subtraction to handle EntityTime - string/timestamp cases.
-    """
     if isinstance(other, (str, float, int)):
       other = EntityTime(other)
     return DeltaTime(other._datetime - self._datetime)

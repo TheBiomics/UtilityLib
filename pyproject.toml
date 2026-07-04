@@ -4,43 +4,59 @@
 
 [project]
   name = "UtilityLib"
-  description = "A comprehensive Python utility library for file management, data processing, and automation of repetitive tasks"
-  version = "2.21.4"
+  description = "Unified Python utility library"
+  version = "2.21.5"
   authors = [
-    { name="Vishal Kumar Sahu", email="mail@vishalkumarsahu.in" },
+    { name="Vishal Kumar Sahu", email="mail@vishalkumarsahu.in" }
   ]
   readme = "README.md"
   license = {file = "LICENSE"}
-  requires-python = ">=3.8, <3.15"
+  requires-python = ">=3.10"
   classifiers = [
     'Operating System :: OS Independent',
-    'Intended Audience :: Science/Research',
+    'Intended Audience :: Developers',
     'Programming Language :: Python :: 3.10',
     'Programming Language :: Python :: 3.11',
     'Programming Language :: Python :: 3.12',
     'Programming Language :: Python :: 3.13',
-    'Programming Language :: Python :: 3.14',
+    'Topic :: Software Development :: Libraries :: Python Modules',
+    'Topic :: Utilities',
   ]
   dependencies = [
-    'pandas',
-    'tqdm',
-    'requests',
     'pyyaml',
-    'toml',
   ]
 
 [project.optional-dependencies]
   all = [
+    'pandas',
+    'tqdm',
+    'requests',
+    'toml',
     'xmltodict',
     'sqlalchemy',
     'psutil',
     'seaborn',
-    'toml',
     'openpyxl',
     'schedule',
     'humanize',
     'cryptography',
+    'selenium>=4.10.0',
+    'seleniumwire',
+    'mechanicalsoup',
+    'blinker>=1.7.0',
   ]
+  data   = ['pandas', 'tqdm', 'openpyxl', 'seaborn']
+  web    = ['requests', 'selenium>=4.10.0', 'seleniumwire', 'mechanicalsoup']
+  crypto = ['cryptography']
+  db     = ['sqlalchemy', 'psutil']
+  dev    = ['pandas', 'requests', 'pyyaml', 'toml', 'schedule', 'psutil']
+
+[project.scripts]
+  pm2s = "UtilityLib.cli.pm2:main"
+  ul = "UtilityLib.cli.ul:main"
+
+[tool.setuptools.packages.find]
+  include = ["UtilityLib*"]
 
 [project.urls]
   Homepage = "https://github.com/TheBiomics/UtilityLib"

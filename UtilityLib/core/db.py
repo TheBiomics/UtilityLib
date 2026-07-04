@@ -118,7 +118,7 @@ class DatabaseUtility(CommandUtility):
         _res[_id_column] = _res[_id_column].astype(int)
         if len(_res.index) != 0:
           _last_id = int(_res[_id_column].values[0])
-    except:
+    except Exception:
       self.log_error(f"Error in get_last_id for {_table}.")
 
     return _last_id

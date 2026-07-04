@@ -271,7 +271,7 @@ class FileSystemUtility(DatabaseUtility):
       _file_content = _file.read()
       try:
         _file_content = _file_content.decode()
-      except:
+      except Exception:
         # Don't raise error for image/media file types ["png", "jpg", "htaccess", "gif", "woff2", "ttf", "mp4"]
         if self.ext(_filename) in ["png", "jpg", "htaccess", "gif", "woff2", "ttf", "mp4"]:
           self.log_warning(f"Cannot decode a media file with extension {self.ext(_filename)}.")
@@ -520,7 +520,7 @@ class FileSystemUtility(DatabaseUtility):
       _content = self.zip_obj.read(_filename)
       try:
         _content = _content.decode()
-      except:
+      except Exception:
         self.log_error("Could not decode the content, returning as it is.")
         pass
       # with self.zip_obj.open(_filename) as _zipfile:
@@ -797,7 +797,7 @@ class FileSystemUtility(DatabaseUtility):
         _data = XMLTree.tostring(_data, encoding='utf8', method='xml')
 
       _res = self.JSON.loads(self.JSON.dumps(self.XMLTODICT.parse(_data)))
-    except:
+    except Exception:
       self.log_info(f"Failed to convert XML to DICT. Some error occurred.")
     return _res
 
@@ -922,7 +922,7 @@ class FileSystemUtility(DatabaseUtility):
 
     try:
       self.URLLib.urlretrieve(_url, _destination)
-    except:
+    except Exception:
       self.log_error(f"{_url} has some error. Couldn't download the content.")
 
     return self.check_path(_destination)
@@ -1056,7 +1056,7 @@ class FileSystemUtility(DatabaseUtility):
         self.write(_destination, self.session_response.content, **kwargs)
       if _return_text:
         return self.session_response.text
-    except:
+    except Exception:
       self.log_warning(f"Normal procedure failed. Trying alternate method 'urlretrieve'.")
       self.download_content(_url, _destination)
 

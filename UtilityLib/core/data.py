@@ -176,7 +176,7 @@ class DataUtility(FileSystemUtility):
     if _json_path.exists():
       _json = self.read_json(_json_path)
     else:
-      self.log_error(f'Please provide valid JSON path {_json}')
+      self.log_error(f'Please provide valid JSON path {_json_path}')
       return self.DF(_result)
 
     for _json_el in _json:
@@ -244,14 +244,17 @@ class DataUtility(FileSystemUtility):
     if isinstance(_excel, (str, )): # str or path?
       self.require('pandas', 'PD')
       if not self.exists(_excel):
-        del _options['mode']
-        del _options['if_sheet_exists']
+        _options.pop('mode', None)
+        _options.pop('if_sheet_exists', None)
 
       return self.PD.ExcelWriter(_excel, **_options)
 
+  _fix_column_names__rename_map = None
   def fix_column_names(self, *args, **kwargs):
     _df = args[0] if len(args) > 0 else kwargs.get("df")
-    _df.columns = [self.text_to_slug(_col).replace('-', '_') for _col in _df.columns]
+    _renamed_cols = [self.text_to_slug(_col).replace('-', '_') for _col in _df.columns]
+    self._fix_column_names__rename_map = dict(zip(_df.columns, _renamed_cols))
+    _df.columns = _renamed_cols
     return _df
 
   def _PD_DF_to_Excel(self, *args, **kwargs):
@@ -283,7 +286,6 @@ class DataUtility(FileSystemUtility):
       _excel_writer = self.pd_excel_writer(str(_excel_writer), **kwargs)
 
     _df.copy().to_excel(_excel_writer, sheet_name=_sheet_name, **_excel_options)
-    hasattr(_excel_writer, 'save') and _excel_writer.save()
     _excel_writer.close()
     _excel_writer.handles = None
     return _excel_writer
@@ -421,11 +423,6 @@ class DataUtility(FileSystemUtility):
 
   keep_alpha = filter_alpha
 
-  def filter_alpha(self, *args, **kwargs):
-    """Filter alpha numerics only"""
-    _string = kwargs.get("string", args[0] if len(args) > 0 else '')
-    _string = "".join(filter(str.isalpha, _string))
-    return _string
 
   def re_compile(self, *args, **kwargs):
     _pattern = args[0] if len(args) > 0 else kwargs.get("pattern")
@@ -455,7 +452,7 @@ class DataUtility(FileSystemUtility):
     return data, True
 
   def recursive_map(self, data, func=None, key=None):
-    """Recusrively maps a function to values of Map or Iterables
+    """Recursively maps a function to values of Map or Iterables
     Also handles filtering of values (except map)
 
     :params func
@@ -820,7 +817,7 @@ class DataUtility(FileSystemUtility):
 
     _instance_list     = (tuple, set, list)
     _instance_dict     = (dict)
-    _instance_singluar = (str, int)
+    _instance_singular = (str, int)
 
     if isinstance(_keys, str):
       _keys = self.parse_key_string(_keys)
@@ -833,9 +830,9 @@ class DataUtility(FileSystemUtility):
       # hasattr(, 'get') & str|int=> _dict key, int => list, tuple, or set
       if "*" in _k:
         _obj = list(_obj)
-      elif isinstance(_obj, _instance_dict) and isinstance(_k, _instance_singluar):
+      elif isinstance(_obj, _instance_dict) and isinstance(_k, _instance_singular):
         _obj = _obj.get(_k, _default)
-      elif(isinstance(_obj, _instance_list) and (isinstance(_k, _instance_singluar) or _k.isnumeric())):
+      elif(isinstance(_obj, _instance_list) and (isinstance(_k, _instance_singular) or _k.isnumeric())):
         _k = int(_k)
         if len(_obj) > _k:
           _obj = _obj[_k]
@@ -864,8 +861,8 @@ class DataUtility(FileSystemUtility):
 
     # Compile or get the existing object
     self.re_underscore = self.re_underscore if hasattr(self, "re_underscore") else self.re_compile("_")
-    self.re_bracket = self.re_bracket if hasattr(self, "re_bracket") else self.re_compile("\(.*?\)|\[.*?\]")
-    self.re_space = self.re_space if hasattr(self, "re_space") else self.re_compile("\s+")
+    self.re_bracket = self.re_bracket if hasattr(self, "re_bracket") else self.re_compile(r"\(.*?\)|\[.*?\]")
+    self.re_space = self.re_space if hasattr(self, "re_space") else self.re_compile(r"\s+")
 
     # _text = _text.lower()
     _text = self.re_bracket.sub(" ", _text)

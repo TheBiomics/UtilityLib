@@ -3,7 +3,10 @@ import time
 import uuid
 from typing import Any, Callable, Dict, Iterable, Optional
 
-import schedule
+try:
+  import schedule
+except ImportError:
+  schedule = None
 
 
 class ScheduleEvent:
@@ -17,7 +20,7 @@ class ScheduleEvent:
   def __init__(
     self,
     manager: "ScheduleManager",
-    job    : schedule.Job,
+    job    : object,
     func   : Callable[..., Any],
     name   : str,
     limit  : Optional[int] = None,
@@ -87,6 +90,8 @@ class ScheduleManager:
     autostart: bool = True,
     on_error: Optional[Callable[[str, BaseException], None]] = None,
   ) -> None:
+    if schedule is None:
+        raise ImportError("'schedule' package required. Install with: pip install schedule")
     self._scheduler = schedule.Scheduler()
     self._events: Dict[str, ScheduleEvent] = {}
     self._tick = tick

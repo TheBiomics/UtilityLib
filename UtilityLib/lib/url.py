@@ -41,18 +41,33 @@ class EntityURL:
     self._response = None  # Clear cached response as the URL has changed
     return self
 
+  _fetch_error = None
+
   def _fetch_response(self):
     """Fetch and cache the response for the URL."""
-    if self._response is None:
+    if self._response is None and self._fetch_error is None:
       try:
-        response = self.requests.head(self._URL, headers=self.headers, allow_redirects=True)
+        response = self.requests.head(self._URL, headers=self.headers, allow_redirects=True, timeout=10)
         self._response = response
+        self._fetch_error = None
         if response.url != self._URL:  # If the URL was redirected
           self._URL = response.url
           self.parsed = urlparse(self._URL)
-      except self.requests.RequestException as e:
-        print(f"Error fetching URL: {e}")
+      except self.requests.ConnectionError:
+        self._fetch_error = 'connection_error'  # DNS failure or server unreachable
         self._response = None
+      except self.requests.Timeout:
+        self._fetch_error = 'timeout'
+        self._response = None
+      except self.requests.RequestException as e:
+        self._fetch_error = str(e)
+        self._response = None
+
+  def __str__(self):
+    return self._URL
+
+  def __repr__(self):
+    return f"{self.__class__.__name__}('{self._URL}')"
 
   @property
   def is_redirected(self):
@@ -64,7 +79,7 @@ class EntityURL:
   def status(self):
     """Get the status code of the URL."""
     self._fetch_response()
-    return self._response.status_code if self._response else -1
+    return self._response.status_code if self._response != None else -1
 
   @property
   def exists(self):
@@ -79,11 +94,17 @@ class EntityURL:
       return False
     return self._response.status_code != 404
 
-  def __str__(self):
-    return self._URL
-
-  def __repr__(self):
-    return f"{self.__class__.__name__}('{self._URL}')"
+  @property
+  def is_available(self):
+    """Check if the server is operational with a fresh (uncached) HEAD request.
+    Returns True if status < 300 or >= 500 (server exists but erroring).
+    Returns False for 3xx/4xx or connection failures.
+    """
+    try:
+      response = self.requests.head(self.url, headers=self.headers, allow_redirects=True, timeout=10)
+      return response.status_code < 300 or response.status_code >= 500
+    except self.requests.RequestException:
+      return False
 
   @property
   def scheme(self):
@@ -119,30 +140,6 @@ class EntityURL:
   def fragment(self):
     return self.parsed.fragment
 
-  @property
-  def status(self):
-    """Check if the URL is reachable."""
-    try:
-      response = self.requests.head(self._URL, allow_redirects=True)
-      return response.status_code
-    except self.requests.RequestException:
-      return -1
-
-  @property
-  def exists(self):
-    """
-    Check if the URL exists or redirects.
-    - Status codes < 300: Exists.
-    - Status codes >= 500: Exists but server error.
-    - Status codes between 300 and 404: Redirects or not found.
-    """
-    try:
-      response = self.requests.head(self.url, allow_redirects=True)
-      if response.status_code < 300 or response.status_code >= 500:
-        return True
-      return False
-    except self.requests.RequestException:
-      return False
 
   @property
   def url(self):

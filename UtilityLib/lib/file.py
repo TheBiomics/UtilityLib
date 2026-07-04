@@ -4,9 +4,21 @@ import json
 import os
 import shutil
 import time
-import toml
-import yaml
-import pandas as pd
+
+# Optional imports — loaded on demand
+def _lazy_import(name):
+    """Lazy import helper for optional dependencies."""
+    import importlib
+    return importlib.import_module(name)
+
+def _get_toml():
+    return _lazy_import('toml')
+
+def _get_yaml():
+    return _lazy_import('yaml')
+
+def _get_pandas():
+    return _lazy_import('pandas')
 
 class EntityFile(EntityPath):
   """EntityFile:
@@ -61,6 +73,31 @@ class EntityFile(EntityPath):
   has_W = is_writable
   has_X = is_executable
 
+  # ===============================
+  # Read Helper Functions
+  # ===============================
+
+  def list_items(self, encoding: str = 'utf-8') -> str:
+    """Read text from the file."""
+
+    if self.is_dir():
+      raise ValueError(f"{self} is a directory, cannot read as file.")
+
+    with open(str(self), 'r', encoding=encoding) as f:
+      return f.read()
+
+  def __iter__(self):
+    """Iterate over lines in the file."""
+    if self.is_dir():
+      raise ValueError(f"{self} is a directory, cannot iterate as file.")
+
+    if not self.exists():
+      raise FileNotFoundError(f"File {self} does not exist.")
+
+    with open(str(self), 'r') as f:
+      for line in f:
+        yield line.rstrip('\n\r')
+
   # ================================
   # File Conversions
   # ================================
@@ -86,52 +123,52 @@ class EntityFile(EntityPath):
 
   def read_yaml(self, **kwargs) -> Any:
     """Read YAML file."""
-    return yaml.safe_load(self.read_text(encoding=kwargs.get('encoding', 'utf-8')))
+    return _get_yaml().safe_load(self.read_text(encoding=kwargs.get('encoding', 'utf-8')))
 
   def write_yaml(self, data: Any, **kwargs) -> bool:
     """Write data to YAML file."""
-    self.write_text(yaml.dump(data), encoding=kwargs.get('encoding', 'utf-8'))
+    self.write_text(_get_yaml().dump(data), encoding=kwargs.get('encoding', 'utf-8'))
     return True
 
   def read_toml(self, **kwargs):
     """Read TOML file."""
-    _raw = toml.loads(self.read_text(encoding=kwargs.get('encoding', 'utf-8')))
+    _raw = _get_toml().loads(self.read_text(encoding=kwargs.get('encoding', 'utf-8')))
     return self._toml_map_from_str(_raw)
 
   def write_toml(self, data: Dict[str, Any], **kwargs) -> bool:
     """Write data to TOML file."""
     self.parent().validate()
-    self.write(toml.dumps(data), encoding=kwargs.get('encoding', 'utf-8'))
+    self.write(_get_toml().dumps(data), encoding=kwargs.get('encoding', 'utf-8'))
     return True
 
   def read_csv(self, **kwargs) -> Any:
     """Read CSV file using pandas."""
-    return pd.read_csv(str(self), **kwargs)
+    return _get_pandas().read_csv(str(self), **kwargs)
 
   def write_csv(self, data: Any, **kwargs) -> bool:
     """Write data to CSV file."""
     self.parent().validate()
-    data.to_csv(str(self), **kwargs)
+    _get_pandas().DataFrame(data).to_csv(str(self), **kwargs)
     return True
 
   def read_excel(self, **kwargs) -> Any:
     """Read Excel file."""
-    return pd.read_excel(str(self), **kwargs)
+    return _get_pandas().read_excel(str(self), **kwargs)
 
   def write_excel(self, data: Any, **kwargs) -> bool:
     """Write data to Excel file."""
     self.parent().validate()
-    data.to_excel(str(self), **kwargs)
+    _get_pandas().DataFrame(data).to_excel(str(self), **kwargs)
     return True
 
   def read_parquet(self, **kwargs) -> Any:
     """Read Parquet file."""
-    return pd.read_parquet(str(self), **kwargs)
+    return _get_pandas().read_parquet(str(self), **kwargs)
 
   def write_parquet(self, data: Any, **kwargs) -> bool:
     """Write data to Parquet file."""
     self.parent().validate()
-    data.to_parquet(str(self), **kwargs)
+    _get_pandas().DataFrame(data).to_parquet(str(self), **kwargs)
     return True
 
   def parse_html(self, markup: str, parser: str = 'html.parser'):
@@ -277,7 +314,7 @@ class EntityFile(EntityPath):
       timestamp = time.strftime("%Y%m%d_%H%M%S")
       backup_name = f"{self.stem}_backup_{timestamp}{self.suffix}"
 
-    backup_path = self.backup_dir / backup_name
+    backup_path = EntityPath(self.default_backup_dir) / backup_name
     backup_path.parent.validate()
     shutil.copy2(str(self), str(backup_path))
     return backup_path
@@ -285,7 +322,7 @@ class EntityFile(EntityPath):
   def list_backups(self) -> List[EntityPath]:
     """List all backups for this file."""
     pattern = f"{self.stem}_backup_*{self.suffix}"
-    return list(self.backup_dir.search(pattern))
+    return list(EntityPath(self.default_backup_dir).search(pattern))
 
   # ================================
   # File Compression and Decompression

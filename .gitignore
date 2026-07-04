@@ -1,7 +1,21 @@
-__pycache__
-*.egg-info
-dist
-build
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+
+# OS
 .DS_Store
 *.log
-*.pyc
+
+# IDE
+.vscode/
+.idea/
+
+# Env
+.env
+.venv/
+
+# Config (user-specific)
+UtilityLib.log

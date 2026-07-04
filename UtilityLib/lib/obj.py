@@ -1,3 +1,4 @@
+import json
 import copy as COPY_Mod
 
 class ObjDict(dict):
@@ -231,26 +232,22 @@ class ObjDict(dict):
 
   def to_json(self, **kwargs):
     """Convert to JSON string."""
-    import json
     return json.dumps(self.to_dict(), **kwargs)
 
   @classmethod
   def from_json(cls, json_str, **kwargs):
     """Create ObjDict from JSON string."""
-    import json
     data = json.loads(json_str, **kwargs)
     return cls(data)
 
   def save_json(self, path, **kwargs):
     """Save to JSON file."""
-    import json
     with open(path, 'w') as f:
       json.dump(self.to_dict(), f, **kwargs)
 
   @classmethod
   def load_json(cls, path, **kwargs):
     """Load from JSON file."""
-    import json
     with open(path, 'r') as f:
       data = json.load(f, **kwargs)
     return cls(data)

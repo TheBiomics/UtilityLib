@@ -43,7 +43,12 @@ class EntityPath(Path):
     This class is designed to make filesystem operations more intuitive and reduce repetitive boilerplate code, improving readability and efficiency in path manipulation tasks.
   """
 
-  _flavour = Path('.')._flavour
+  # Handle _flavour for compatibility with Python < 3.13
+  try:
+    _flavour = Path('.')._flavour
+  except AttributeError:
+    # Python 3.13+ removed _flavour from the internal API
+    pass
 
   def __new__(cls, *args, **kwargs) -> None:
     # Filter out None and empty arguments properly
@@ -53,7 +58,18 @@ class EntityPath(Path):
       if arg is not None and str(arg).strip()
     ] or ['.']
     _valid_args[0] = str(Path(_valid_args[0]).expanduser().resolve())
-    return super().__new__(cls, *_valid_args, **kwargs)
+    _instance = super().__new__(cls, *_valid_args, **kwargs)
+    # Store the resolved path so __str__ always returns expanded form.
+    # pathlib.Path.__str__ can return unexpanded ~ on some Python builds
+    # when _flavour is set manually, causing gzip/open/os.path to fail.
+    _instance._resolved_str = _valid_args[0]
+    return _instance
+
+  def __str__(self):
+    # Return the resolved (expanded) path, not the raw pathlib internal str.
+    # This ensures ~ is always expanded for compatibility with gzip.open,
+    # os.path.exists, and other OS-level calls that don't expand ~.
+    return getattr(self, '_resolved_str', super().__str__())
 
   def len(self):
     return len(str(self))
@@ -220,7 +236,8 @@ class EntityPath(Path):
 
       _block_counter -= 1
 
-    _res_lines = _fh._read_lines()
+    _res_lines = _fh.readlines()
+    _fh.close()
     return _res_lines[-lines:]
 
   def _read_file(self, method=None, **kwargs):
@@ -313,10 +330,6 @@ class EntityPath(Path):
   def items(self):
     self.list_items()
     return self._items
-
-  def __getitem__(self, idx):
-    """Get item by index."""
-    return self.items[idx]
 
   def __getitem__(self, idx):
     """Get item by index."""
@@ -523,7 +536,7 @@ class EntityPath(Path):
     """Return the relative path from the current working directory."""
     try:
       return (self.full_path).relative_to(_path or Path.cwd())
-    except:
+    except Exception:
       return self
 
   def has(self, file=None):

@@ -3,11 +3,13 @@ from contextlib import contextmanager
 from ..lib.obj import ObjDict
 from ..lib.cmd import CMDLib
 from ..lib.path import EntityPath
+from ..lib.parallel import ParallelExecutor
 from .log import LoggingUtility
 
 class CommandUtility(LoggingUtility):
   def __init__(self, *args, **kwargs):
     super().__init__(**kwargs)
+    self._executor = None
 
   is_executable = CMDLib.is_exe
   cmd_is_exe    = CMDLib.which
@@ -37,6 +39,14 @@ class CommandUtility(LoggingUtility):
 
     return list(map(str, _command))
 
+  @property
+  def executor(self):
+    """Get or create the ParallelExecutor instance"""
+    if self._executor is None:
+      self._executor = ParallelExecutor()
+      self._executor.init()
+    return self._executor
+
   def cmd_bg(self, *args, **kwargs):
     """
     Run a method in background using ThreadPoolExecutor.
@@ -55,10 +65,6 @@ class CommandUtility(LoggingUtility):
       # Run cmd_run in background (default)
       future = cmd_util.cmd_bg('echo', 'Hello')  # Equivalent to cmd_run('echo', 'Hello')
     """
-
-    if not hasattr(self, 'thread_pool') or self.thread_pool is None:
-      self.init_multiprocessing()
-
     # Determine if the first arg is a callable function
     if args and callable(args[0]):
       func = args[0]
@@ -67,16 +73,7 @@ class CommandUtility(LoggingUtility):
       func = self.cmd_run
       func_args = args
 
-    func_name = getattr(func, '__name__', 'anonymous function')
-
-    self.log_debug(f"CMD_010: Running function '{func_name}' in background")
-    try:
-      _future = self.thread_pool.submit(func, *func_args, **kwargs)
-      self.future_objects.append(_future)
-      return _future
-    except Exception as e:
-      self.log_error(f"CMD_011: Failed to run function '{func_name}' in background: {e}")
-      return None
+    return self.executor.submit(func, *func_args, **kwargs)
 
   func_bg = cmd_bg
   bg_func = cmd_bg
@@ -167,31 +164,34 @@ class CommandUtility(LoggingUtility):
 
   get_cli_args = CMDLib.get_registered_args
 
-  # Multithreading
-  max_workers = 32
-  num_cores = 8
-  thread_pool = None
-  semaphore = None
-  task_queue = None
-  future_objects = []
+  # Multiprocessing properties (delegate to executor)
+  @property
+  def max_workers(self):
+    return self.executor.max_workers
 
-  def _get_max_workers(self):
-    # Get the number of CPU cores available
-    self.num_cores = min(self.OS.cpu_count(), self.num_cores)
-    # Adjust max_workers based on available CPU cores and workload
-    self.max_workers = min(2 * self.num_cores, self.max_workers)  # Example: Limit to 2x CPU cores or 32 workers, whichever is lower
-    return self.max_workers
+  @property
+  def num_cores(self):
+    return self.executor.num_cores
+
+  @property
+  def thread_pool(self):
+    return self.executor.thread_pool
+
+  @property
+  def semaphore(self):
+    return self.executor.semaphore
+
+  @property
+  def task_queue(self):
+    return self.executor.task_queue
+
+  @property
+  def future_objects(self):
+    return self.executor.future_objects
 
   def init_multiprocessing(self, *args, **kwargs):
-    self.update_attributes(self, kwargs)
-    self.require('concurrent.futures', 'ConcurrentFutures')
-    self.require('threading', 'Threading')
-    self.require('queue', 'QueueProvider')
-    self._get_max_workers()
-    self.task_queue = self.QueueProvider.Queue()
-    self.semaphore = self.Threading.Semaphore(self.max_workers - 1)
-    self.thread_pool = self.ConcurrentFutures.ThreadPoolExecutor(max_workers=self.max_workers)
-    self.log_debug(f"CMD_002:Starting with cores {self.num_cores} and max_workers {self.max_workers}.")
+    """Initialize multiprocessing (delegates to ParallelExecutor)"""
+    return self.executor.init(*args, **kwargs)
 
   start_mp = init_multiprocessing
 
@@ -202,14 +202,14 @@ class CommandUtility(LoggingUtility):
 
   def __exit__(self, *args, **kwargs):
     self.log_debug('CMD_001: Shutting down the thread executor.')
-    self.thread_pool.shutdown()
+    self.executor.shutdown()
 
   @CacheMethod(maxsize=None)
   def _cache_wrapper(self, func, *arg, **kwarg):
     return func(*arg, **kwarg)
 
   def queue_task(self, func, *args, **kwargs) -> None:
-    """Queue a function operation
+    """Queue a function operation (delegates to ParallelExecutor)
 
 @example:
 def method_to_execute(self, *arg, **kwargs):
@@ -222,99 +222,40 @@ _.process_queue
 _.queue_final_callback
 
 """
-    self.task_queue.put((func, args, kwargs))
+    return self.executor.queue_task(func, *args, **kwargs)
 
   def queue_timed_callback(self, callback=None, *args, **kwargs) -> None:
-    _cb_interval = kwargs.pop("cb_interval", 300)
-    if not callback is None and callable(callback):
-      self.require('threading', 'Threading')
-      self.log_debug(f'CMD_003: Delegating a callback in {_cb_interval}s.')
-      self.Threading.Timer(_cb_interval, callback, args=args, kwargs=kwargs)
+    """Schedule a timed callback (delegates to ParallelExecutor)"""
+    return self.executor.queue_timed_callback(callback, *args, **kwargs)
 
-  _queue_schedule_ref = None
   def queue_final_callback(self, callback=None, *args, **kwargs) -> None:
-    if callback is not None and callable(callback):
-      from ..lib.schedule import ScheduleManager
-
-      _cb_interval = kwargs.pop("cb_interval", 60)
-      # Lazily create a ScheduleManager per CommandUtility instance and start it
-      if not hasattr(self, "_schedule_mgr") or self._schedule_mgr is None:
-        self._schedule_mgr = ScheduleManager()
-
-      self._queue_schedule_ref = self._schedule_mgr.add(
-        self._queue_final_cb_fn_bg_exe,
-        interval=_cb_interval,
-        unit="seconds",
-        args=(callback, *args),
-        **kwargs,
-      )
-
-  def _queue_final_cb_fn_bg_exe(self, callback, *args, **kwargs) -> None:
-    _job_t, _job_d = self.queue_task_status.total, self.queue_task_status.done
-    if any([_job_d < _job_t, not self.task_queue.empty()]):
-      self.log_debug(f'CMD_004: Job Status: {_job_t-_job_d}/{_job_t} to be done. ~zZ')
-    elif self._queue_schedule_ref is not None:
-      self.log_debug(f'CMD_005: Job Status: All {self.queue_done} job(s) completed. Executing final callback...')
-      callback(*args, **kwargs)
-      self._queue_schedule_ref.stop()
+    """Schedule a final callback when all tasks complete (delegates to ParallelExecutor)"""
+    return self.executor.queue_final_callback(callback, *args, **kwargs)
 
   def process_queue(self, *args, **kwargs):
-    """Process tasks from the queue
-      # Acquire semaphore to limit concurrency
-      # Get task from the queue
-      # Submit task to the executor
-    """
-
-    while not self.task_queue.empty():
-      try:
-        with self.semaphore:
-          _func, _args, _kwargs = self.task_queue.get()
-          _ftr_obj = self.thread_pool.submit(_func, *_args, **_kwargs)
-          self.future_objects.append(_ftr_obj)
-      except Exception as e:
-        self.log_error(f"Error processing the queue: {e}")
-
-    self._shut_down_queue(*args, **kwargs)
-    return True
-
-  def _shut_down_queue(self, *args, **kwargs):
-    _wait = kwargs.get("wait", args[0] if len(args) > 0 else False)
-    self.log_debug(f'CMD_006: Setting queue wait = {_wait}.')
-
-    if _wait:
-      # Wait for all tasks to complete
-      self.ConcurrentFutures.wait(self.future_objects)
-
-    # Shutdown the ThreadPoolExecutor
-    self.thread_pool.shutdown(wait=_wait)
+    """Process tasks from the queue (delegates to ParallelExecutor)"""
+    return self.executor.process_queue(*args, **kwargs)
 
   @property
   def queue_running(self) -> int:
     """Blocking"""
-    return sum(map(lambda _fo: bool(_fo.running()), self.ConcurrentFutures.as_completed(self.future_objects)))
+    return self.executor.queue_running
 
   @property
   def queue_failed(self) -> int:
     """Blocking"""
-    return sum(map(lambda _fo: bool(_fo.exception()), self.ConcurrentFutures.as_completed(self.future_objects)))
+    return self.executor.queue_failed
 
   @property
   def queue_done(self) -> int:
-    return self.queue_task_status.done
+    return self.executor.queue_done
 
   @property
   def queue_pending(self) -> int:
-    return self.queue_task_status.pending
+    return self.executor.queue_pending
 
   @property
   def queue_task_status(self) -> dict:
-    _total = len(self.future_objects)
-    _done = sum(map(lambda _fo: bool(_fo.done()), self.future_objects))
-
-    return ObjDict({
-      "total": _total,
-      "done": _done,
-      "pending": _total - _done, # _fo.done() - _fo.running()
-    })
+    return self.executor.queue_task_status
 
   sys_open_files = CMDLib.get_open_files
